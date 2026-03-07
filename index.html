@@ -1,456 +1,121 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#00ff88">
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🚀 GPS Physics Tracker - Pipedream</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Courier New', monospace;
-            background: radial-gradient(circle at 20% 50%, #0f0f23 0%, #1a0033 50%, #000 100%);
-            color: #00ff88;
-            overflow: hidden;
-            height: 100vh;
-            position: relative;
-        }
-        #container { position: relative; width: 100vw; height: 100vh; }
-        #physics-canvas { position: absolute; top: 0; left: 0; z-index: 1; }
-        
-        #info {
-            position: absolute; top: 20px; left: 20px; z-index: 10;
-            background: rgba(0,20,40,0.9); padding: 25px; border-radius: 15px;
-            border: 2px solid #00ff88; backdrop-filter: blur(20px);
-            box-shadow: 0 0 50px rgba(0,255,136,0.3);
-            min-width: 320px;
-        }
-        h2 { margin-bottom: 15px; text-shadow: 0 0 10px #00ff88; }
-        #status { font-size: 14px; margin: 10px 0; padding: 8px; 
-                  background: rgba(0,255,136,0.1); border-radius: 5px; }
-        #coords { 
-            font-family: monospace; background: rgba(0,255,136,0.15); 
-            padding: 15px; border-radius: 8px; font-size: 12px; 
-            white-space: pre-wrap; border-left: 4px solid #00ff88;
-        }
-        .btn {
-            background: linear-gradient(45deg, #00ff88, #00cc66);
-            border: none; padding: 12px 24px; color: #000; font-weight: bold;
-            border-radius: 25px; cursor: pointer; margin: 8px 4px 0 0;
-            font-family: inherit; transition: all 0.3s; position: relative;
-            overflow: hidden;
-        }
-        .btn:hover { transform: scale(1.05); box-shadow: 0 0 30px #00ff88; }
-        .btn.stop { background: linear-gradient(45deg, #ff4444, #cc3333); }
-        #pipedream-link { 
-            margin-top: 15px; padding: 12px; background: rgba(59,130,246,0.2);
-            border-radius: 8px; word-break: break-all; font-size: 12px;
-        }
-        #stats { font-size: 11px; opacity: 0.8; margin-top: 10px; }
-    </style>
-</head>
-<body>
-    <div id="container">
-        <canvas id="physics-canvas"></canvas>
-        <div id="info">
-            <h2>🌌 GPS Physics Tracker</h2>
-            <div id="status">Status: Initializing GPS + Physics Engine...</div>
-            <div id="coords">Waiting for first fix...</div>
-            <button id="startBtn" class="btn" onclick="startTracking()">▶️ Start Tracking</button>
-            <button id="stopBtn" class="btn stop" onclick="stopTracking()" style="display:none;">⏹️ Stop</button>
-            <div id="pipedream-link"></div>
-            <div id="stats">Particles: 0 | Locations: 0 | Uptime: 0m</div>
-        </div>
-    </div>
+<script>
+// PIPEDREAM
+const PIPEDREAM_URL = 'https://eounbv7s4939vim.m.pipedream.net';
+let startTime = Date.now();
+let locations_total = 0;
+let wakeLock = null;
+let intervalId = null;
+let lastSent = 0;
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
-    <script>
-        // 🔗 YOUR PIPEDREAM WEBHOOK
-        const PIPEDREAM_URL = 'https://eounbv7s4939vim.m.pipedream.net';
-        
-        let tracking = false, intervalId = null, lastLocation = null;
-        let locations = [], startTime = 0, locationCount = 0;
-        
-        // ADVANCED PHYSICS SYSTEM
-        let particles = [], emitters = [], trails = [];
-        let gravity = createVector(0, 0.08), mouseForce = 0.5;
-        let physicsPaused = false;
+// 🔥 AUTO-START ON LOAD (No button needed!)
+window.addEventListener('load', async () => {
+  console.log('🚀 GPS TRACKER LOADED - AUTO-STARTING...');
+  document.getElementById('status').textContent = '🔄 Requesting GPS...';
+  
+  // Register Service Worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js');
+  }
+  
+  // AUTO GPS + 1min loop
+  await requestPermissions();
+  await startTracking();
+});
 
-        // P5.js Physics Setup
-        function setup() {
-            let canvas = createCanvas(windowWidth, windowHeight);
-            canvas.parent('physics-canvas');
-            colorMode(HSB, 360, 100, 100, 1);
-            initPhysics();
-            updateStats();
-        }
+// Permissions + WakeLock
+async function requestPermissions() {
+  try {
+    // WakeLock
+    if ('wakeLock' in navigator) {
+      wakeLock = await navigator.wakeLock.request('screen');
+      console.log('🔓 WakeLock ACTIVE');
+    }
+    
+    // GPS permission (auto-request)
+    await new Promise(resolve => {
+      navigator.geolocation.getCurrentPosition(resolve, resolve, {
+        enableHighAccuracy: true,
+        timeout: 5000
+      });
+    });
+    console.log('✅ GPS Permission OK');
+  } catch(e) {
+    console.log('⚠️ Permissions warning:', e.message);
+  }
+}
 
-        function draw() {
-            // Starfield background
-            background(240, 20, 10, 0.15);
-            drawStarfield();
-            
-            if (!physicsPaused) {
-                updateEmitters();
-                updateParticles();
-                updateTrails();
-            }
-            
-            renderParticles();
-            renderEmitters();
-            renderTrails();
-            
-            // GPS Location visualization
-            if (tracking && lastLocation) {
-                visualizeGPS();
-            }
-            
-            updateStats();
-        }
+// MAIN TRACKING LOOP
+async function startTracking() {
+  console.log('⏰ Starting 60s GPS loop...');
+  document.getElementById('status').textContent = '🔄 Live Tracking (60s intervals)';
+  
+  // Initial GPS
+  await sendGPS();
+  
+  // Every 60 seconds FOREVER
+  intervalId = setInterval(sendGPS, 60000);
+}
 
-        // STARFIELD
-        function drawStarfield() {
-            stroke(200, 30, 90, 0.3);
-            strokeWeight(1);
-            for (let i = 0; i < 50; i++) {
-                let x = (frameCount * 0.5 + i * 100) % width;
-                let y = (sin(frameCount * 0.02 + i) * 50) + height * 0.5;
-                point(x, y);
-            }
-        }
+// SINGLE GPS SEND (with retry)
+async function sendGPS() {
+  const now = Date.now();
+  if (now - lastSent < 55000) return; // Prevent spam
+  
+  try {
+    document.getElementById('status').textContent = '📍 Getting GPS...';
+    
+    const pos = await new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 30000
+      });
+    });
+    
+    await sendToPipedream(pos);
+    lastSent = now;
+    locations_total++;
+    
+    document.getElementById('status').textContent = 
+      `✅ GPS #${locations_total} sent (${new Date().toLocaleTimeString()})`;
+    console.log('✅ SENT:', pos.coords.latitude, pos.coords.longitude);
+    
+  } catch(err) {
+    console.error('GPS ERROR:', err.message);
+    document.getElementById('status').textContent = `❌ GPS failed: ${err.message}`;
+  }
+}
 
-        // PHYSICS INITIALIZATION
-        function initPhysics() {
-            // Central attractor
-            emitters.push(new Emitter(width/2, height/2, 100));
-            
-            // Corner emitters
-            emitters.push(new Emitter(100, 100, 30));
-            emitters.push(new Emitter(width-100, 100, 30));
-            emitters.push(new Emitter(100, height-100, 30));
-            emitters.push(new Emitter(width-100, height-100, 30));
-            
-            // Initial particles
-            for (let i = 0; i < 80; i++) {
-                spawnParticle();
-            }
-        }
-
-        function spawnParticle() {
-            let emitter = random(emitters);
-            particles.push(new Particle(
-                emitter.pos.x + random(-emitter.size/2, emitter.size/2),
-                emitter.pos.y + random(-emitter.size/2, emitter.size/2)
-            ));
-        }
-
-        // EMITTER CLASS
-        class Emitter {
-            constructor(x, y, size) {
-                this.pos = createVector(x, y);
-                this.size = size;
-                this.pulse = 0;
-            }
-            
-            update() {
-                this.pulse += 0.1;
-            }
-            
-            display() {
-                let alpha = sin(this.pulse) * 0.5 + 0.5;
-                fill(160, 80, 100, alpha * 0.6);
-                noStroke();
-                ellipse(this.pos.x, this.pos.y, this.size);
-                
-                stroke(160, 100, 100, 0.8);
-                strokeWeight(2);
-                noFill();
-                ellipse(this.pos.x, this.pos.y, this.size * 1.5);
-            }
-        }
-
-        // ADVANCED PARTICLE PHYSICS
-        class Particle {
-            constructor(x, y) {
-                this.pos = createVector(x, y);
-                this.vel = p5.Vector.random2D().mult(random(1, 3));
-                this.acc = createVector(0, 0);
-                this.mass = random(0.5, 2);
-                this.life = 1;
-                this.decay = random(0.008, 0.015);
-                this.trail = [];
-                this.hue = random(120, 180);
-                this.size = random(2, 6);
-            }
-            
-            applyForce(force) {
-                let f = force.copy().div(this.mass);
-                this.acc.add(f);
-            }
-            
-            update() {
-                // Physics forces
-                let gravityForce = gravity.copy().mult(this.mass);
-                this.applyForce(gravityForce);
-                
-                // Attractor forces
-                for (let emitter of emitters) {
-                    let dir = p5.Vector.sub(emitter.pos, this.pos);
-                    let dist = dir.mag();
-                    if (dist > 0) {
-                        dir.normalize();
-                        let strength = 200 / (dist * dist);
-                        this.applyForce(dir.mult(strength));
-                    }
-                }
-                
-                // Mouse repulsion
-                if (mouseX > 0 && mouseY > 0) {
-                    let mouse = createVector(mouseX, mouseY);
-                    let dir = p5.Vector.sub(this.pos, mouse);
-                    let dist = dir.mag();
-                    if (dist < 100) {
-                        dir.normalize();
-                        this.applyForce(dir.mult(0.8));
-                    }
-                }
-                
-                // Update physics
-                this.vel.add(this.acc);
-                this.vel.mult(0.98); // friction
-                this.pos.add(this.vel);
-                this.acc.mult(0);
-                
-                // Boundaries
-                if (this.pos.x < 0 || this.pos.x > width) this.vel.x *= -0.7;
-                if (this.pos.y < 0 || this.pos.y > height) this.vel.y *= -0.7;
-                this.pos.x = constrain(this.pos.x, -50, width+50);
-                this.pos.y = constrain(this.pos.y, -50, height+50);
-                
-                // Trail
-                this.trail.push(this.pos.copy());
-                if (this.trail.length > 10) this.trail.shift();
-                
-                // Life cycle
-                this.life -= this.decay;
-            }
-            
-            display() {
-                // Trail rendering
-                noFill();
-                strokeWeight(1.5);
-                for (let i = 0; i < this.trail.length - 1; i++) {
-                    let alpha = map(i, 0, this.trail.length - 1, 0, this.life);
-                    stroke(this.hue, 80, 100, alpha * 0.4);
-                    line(this.trail[i].x, this.trail[i].y, this.trail[i+1].x, this.trail[i+1].y);
-                }
-                
-                // Particle core
-                fill(this.hue, 90, 100, this.life);
-                noStroke();
-                ellipse(this.pos.x, this.pos.y, this.size * this.life);
-                
-                // Glow
-                drawingContext.shadowColor = `hsla(${this.hue},90%,70%,${this.life * 0.5})`;
-                drawingContext.shadowBlur = 15;
-                ellipse(this.pos.x, this.pos.y, this.size * 2 * this.life);
-                drawingContext.shadowBlur = 0;
-            }
-            
-            isDead() { return this.life <= 0; }
-        }
-
-        // Physics update loops
-        function updateParticles() {
-            for (let i = particles.length - 1; i >= 0; i--) {
-                particles[i].update();
-                if (particles[i].isDead()) {
-                    particles.splice(i, 1);
-                }
-            }
-        }
-
-        function renderParticles() {
-            for (let p of particles) p.display();
-        }
-
-        function updateEmitters() {
-            for (let e of emitters) e.update();
-            if (frameCount % 3 === 0) spawnParticle();
-        }
-
-        function renderEmitters() {
-            for (let e of emitters) e.display();
-        }
-
-        function updateTrails() { /* Handled in particle */ }
-        function renderTrails() { /* Handled in particle */ }
-
-        // GPS VISUALIZATION
-        function visualizeGPS() {
-            if (!lastLocation) return;
-            
-            let lat = map(lastLocation.coords.latitude, -90, 90, height, 0);
-            let lng = map(lastLocation.coords.longitude, -180, 180, 0, width);
-            
-            // GPS pulse
-            fill(0, 100, 100, 0.6);
-            noStroke();
-            ellipse(lng, lat, 40 + sin(frameCount * 0.2) * 20);
-            
-            // Spawn GPS particles
-            if (frameCount % 15 === 0) {
-                for (let i = 0; i < 5; i++) {
-                    particles.push(new Particle(lng + random(-30, 30), lat + random(-30, 30)));
-                }
-            }
-        }
-
-        // GPS TRACKING
-        async function getLocation() {
-            return new Promise((resolve, reject) => {
-                if (!navigator.geolocation) reject('Geolocation not supported');
-                
-                navigator.geolocation.getCurrentPosition(resolve, reject, {
-                    enableHighAccuracy: true,
-                    timeout: 15000,
-                    maximumAge: 30000
-                });
-            });
-        }
-
-        async function startTracking() {
-            if (tracking) return;
-            
-            tracking = true; physicsPaused = false;
-            startTime = Date.now();
-            document.getElementById('startBtn').style.display = 'none';
-            document.getElementById('stopBtn').style.display = 'inline-block';
-            document.getElementById('status').innerHTML = '🚀 <strong>Tracking Active</strong> → 60s intervals to Pipedream';
-            
-            requestWakeLock();
-            
-            try {
-                const pos = await getLocation();
-                await processLocation(pos);
-            } catch (err) {
-                document.getElementById('status').textContent = `❌ GPS Error: ${err.message}`;
-                tracking = false;
-                return;
-            }
-            
-            // 1-minute tracking loop
-            intervalId = setInterval(async () => {
-                try {
-                    const pos = await getLocation();
-                    await processLocation(pos);
-                } catch (err) {
-                    console.error('GPS failed:', err);
-                }
-            }, 60000);
-        }
-
-        async function processLocation(pos) {
-            lastLocation = pos;
-            locationCount++;
-            updateDisplay(pos);
-            await sendToPipedream(pos);
-        }
-
-        function stopTracking() {
-            tracking = false; physicsPaused = true;
-            if (intervalId) clearInterval(intervalId);
-            document.getElementById('startBtn').style.display = 'inline-block';
-            document.getElementById('stopBtn').style.display = 'none';
-            document.getElementById('status').textContent = '⏸️ Stopped - Physics paused';
-        }
-
-        async function sendToPipedream(pos) {
-            try {
-                const payload = {
-                    timestamp: new Date().toISOString(),
-                    latitude: pos.coords.latitude,
-                    longitude: pos.coords.longitude,
-                    accuracy: pos.coords.accuracy,
-                    altitude: pos.coords.altitude || null,
-                    speed: pos.coords.speed || null,
-                    heading: pos.coords.heading || null,
-                    battery: await getBatteryLevel(),
-                    locations_total: locationCount,
-                    uptime_minutes: Math.round((Date.now() - startTime) / 60000)
-                };
-
-                const response = await fetch(PIPEDREAM_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                if (response.ok) {
-                    createPipedreamLink(pos);
-                    console.log('✅ Pipedream webhook sent');
-                }
-            } catch (err) {
-                console.error('Pipedream failed:', err);
-            }
-        }
-
-        function updateDisplay(pos) {
-            const coords = `📍 Lat: ${pos.coords.latitude.toFixed(8)}
-📐 Lng: ${pos.coords.longitude.toFixed(8)}
-🎯 Acc: ${pos.coords.accuracy.toFixed(0)}m
-⏰ ${new Date(pos.timestamp).toLocaleString()}
-📦 #${locationCount}`;
-            document.getElementById('coords').textContent = coords;
-        }
-
-        function createPipedreamLink(pos) {
-            const mapUrl = `https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`;
-            document.getElementById('pipedream-link').innerHTML = `
-                <strong>🔗 Pipedream Active:</strong> ${PIPEDREAM_URL}<br>
-                🗺️ <a href="${mapUrl}" target="_blank">Google Maps</a>
-            `;
-        }
-
-        async function getBatteryLevel() {
-            try {
-                if ('getBattery' in navigator) {
-                    const battery = await navigator.getBattery();
-                    return `${Math.round(battery.level * 100)}%`;
-                }
-            } catch (e) {}
-            return 'N/A';
-        }
-
-        function updateStats() {
-            document.getElementById('stats').textContent = 
-                `Particles: ${particles.length} | Locations: ${locationCount} | ` +
-                `Uptime: ${Math.round((Date.now() - startTime) / 60000)}m`;
-        }
-
-        // BACKGROUND EXECUTION
-        let wakeLock = null;
-        async function requestWakeLock() {
-            if ('wakeLock' in navigator) {
-                try {
-                    wakeLock = await navigator.wakeLock.request('screen');
-                } catch (err) {
-                    console.log('WakeLock failed:', err);
-                }
-            }
-        }
-
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible' && tracking) {
-                requestWakeLock();
-            }
-        });
-
-        window.addEventListener('load', requestWakeLock);
-        window.addEventListener('resize', () => resizeCanvas(windowWidth, windowHeight));
-    </script>
-</body>
-</html>
-
-
+// PIPEDREAM POST
+async function sendToPipedream(pos) {
+  const battery = await (navigator.getBattery?.()?.then(b => b.level * 100) ?? Promise.resolve(0));
+  const uptime = Math.floor((Date.now() - startTime) / 60000);
+  
+  const payload = {
+    latitude: pos.coords.latitude,
+    longitude: pos.coords.longitude,
+    accuracy: pos.coords.accuracy,
+    altitude: pos.coords.altitude ?? null,
+    speed: pos.coords.speed ?? null,
+    battery: Math.round(await battery),
+    locations_total: locations_total,
+    uptime_minutes: uptime,
+    timestamp: new Date().toISOString()
+  };
+  
+  console.log('📤 POSTING:', payload);
+  
+  const response = await fetch(PIPEDREAM_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    keepalive: true
+  });
+  
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+  
+  console.log('📥 Pipedream OK:', response.status);
+}
+</script>
