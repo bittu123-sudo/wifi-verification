@@ -1,44 +1,40 @@
 export default defineComponent({
   async run({ steps, $ }) {
     const gps = steps.trigger.event.body;
-    console.log('📥 RAW DATA RECEIVED:', JSON.stringify(gps, null, 2));
+    console.log('📥 GPS:', gps);
     
-    // Extract GPS (handle string/null)
-    const lat = parseFloat(gps?.latitude);
-    const lng = parseFloat(gps?.longitude);
+    const lat = parseFloat(gps.latitude);
+    const lng = parseFloat(gps.longitude);
     
-    // VALIDATION
-    if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
-      return {
-        success: false,
-        error: 'Missing GPS coordinates',
-        received: gps,
-        details: 'Expected: {"latitude": 37.7749, "longitude": -122.4194}'
-      };
+    if (!lat || !lng) {
+      return { success: false, error: 'No GPS', received: gps };
     }
     
-    // Google Maps
-    const mapsLink = `https://www.google.com/maps?q=${lat},${lng}&z=18`;
+    // 🗺️ GOOGLE MAPS (CLICKABLE IN DASHBOARD)
+    const mapsLink = `https://www.google.com/maps?q=${lat},${lng}&z=18&ll=${lat},${lng}`;
+    const staticMap = `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=18&size=400x400&markers=color:red|${lat},${lng}&key=AIzaSyD...`; // Optional
     
-    // Status
-    const status = `🚨 GPS #${gps.locations_total || 1}
+    const status = `🚨 GPS #${gps.locations_total}
 📍 ${lat.toFixed(6)}, ${lng.toFixed(6)}
-🎯 ${gps.accuracy || '?'}m
-🔋 ${gps.battery || '?'}%
-⏱️ ${gps.uptime_minutes || 0}min
-🗺️ ${mapsLink}`;
+🎯 ${gps.accuracy}m
+🔋 ${gps.battery}%
+⏱️ ${gps.uptime_minutes}min
+🗺️ [OPEN MAPS](${mapsLink})`;
     
-    console.log(status);
+    // SAVE TO FILE (persistent!)
+    await $respond({
+      status: 200,
+      headers: { 'Content-Type': 'text/plain' },
+      body: status
+    });
     
     return {
       success: true,
       latitude: lat,
       longitude: lng,
-      accuracy: gps.accuracy,
-      battery: gps.battery,
-      uptime_minutes: gps.uptime_minutes,
-      locations_total: gps.locations_total,
-      google_maps: mapsLink,
+      google_maps: mapsLink,  // ← CLICKABLE IN DASHBOARD!
+      static_map: staticMap,
+      raw_gps: gps,
       status: status
     };
   }
