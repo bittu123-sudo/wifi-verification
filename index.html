@@ -1,71 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>GPS Tracker PWA</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#00ff88">
+  <meta http-equiv="Permissions-Policy" content="geolocation=(self)">
+  <style>
+    body { margin: 0; background: #000; color: #0f0; font-family: monospace; }
+    #status { position: fixed; top: 10px; left: 10px; background: rgba(0,255,0,0.1); padding: 10px; }
+  </style>
+</head>
+<body>
+  <div id="status">Loading...</div>
+
 <script>
-// PIPEDREAM
-const PIPEDREAM_URL = 'https://eounbv7s4939vim.m.pipedream.net';
+// 👈 YOUR NEW URL
+const PIPEDREAM_URL = 'https://eoqxdcdf7wad4id.m.pipedream.net';
 let startTime = Date.now();
 let locations_total = 0;
-let wakeLock = null;
-let intervalId = null;
 let lastSent = 0;
 
-// 🔥 AUTO-START ON LOAD (No button needed!)
+// AUTO-START ON LOAD
 window.addEventListener('load', async () => {
-  console.log('🚀 GPS TRACKER LOADED - AUTO-STARTING...');
-  document.getElementById('status').textContent = '🔄 Requesting GPS...';
-  
-  // Register Service Worker
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js');
-  }
-  
-  // AUTO GPS + 1min loop
-  await requestPermissions();
+  console.log('🚀 GPS AUTO-START');
+  document.getElementById('status').textContent = '🔄 Starting GPS...';
   await startTracking();
 });
 
-// Permissions + WakeLock
-async function requestPermissions() {
-  try {
-    // WakeLock
-    if ('wakeLock' in navigator) {
-      wakeLock = await navigator.wakeLock.request('screen');
-      console.log('🔓 WakeLock ACTIVE');
-    }
-    
-    // GPS permission (auto-request)
-    await new Promise(resolve => {
-      navigator.geolocation.getCurrentPosition(resolve, resolve, {
-        enableHighAccuracy: true,
-        timeout: 5000
-      });
-    });
-    console.log('✅ GPS Permission OK');
-  } catch(e) {
-    console.log('⚠️ Permissions warning:', e.message);
-  }
-}
-
-// MAIN TRACKING LOOP
 async function startTracking() {
-  console.log('⏰ Starting 60s GPS loop...');
-  document.getElementById('status').textContent = '🔄 Live Tracking (60s intervals)';
-  
   // Initial GPS
   await sendGPS();
   
-  // Every 60 seconds FOREVER
-  intervalId = setInterval(sendGPS, 60000);
+  // 60s loop
+  setInterval(sendGPS, 60000);
+  console.log('⏰ 60s loop started');
 }
 
-// SINGLE GPS SEND (with retry)
 async function sendGPS() {
-  const now = Date.now();
-  if (now - lastSent < 55000) return; // Prevent spam
+  if (Date.now() - lastSent < 55000) return;
   
   try {
-    document.getElementById('status').textContent = '📍 Getting GPS...';
-    
-    const pos = await new Promise((resolve, reject) => {
-      navigator.geolocation.getCurrentPosition(resolve, reject, {
+    const pos = await new Promise((res, rej) => {
+      navigator.geolocation.getCurrentPosition(res, rej, {
         enableHighAccuracy: true,
         timeout: 10000,
         maximumAge: 30000
@@ -73,49 +51,38 @@ async function sendGPS() {
     });
     
     await sendToPipedream(pos);
-    lastSent = now;
     locations_total++;
+    document.getElementById('status').textContent = `✅ #${locations_total} sent`;
     
-    document.getElementById('status').textContent = 
-      `✅ GPS #${locations_total} sent (${new Date().toLocaleTimeString()})`;
-    console.log('✅ SENT:', pos.coords.latitude, pos.coords.longitude);
-    
-  } catch(err) {
-    console.error('GPS ERROR:', err.message);
-    document.getElementById('status').textContent = `❌ GPS failed: ${err.message}`;
+  } catch(e) {
+    console.error('GPS:', e);
   }
 }
 
-// PIPEDREAM POST
 async function sendToPipedream(pos) {
-  const battery = await (navigator.getBattery?.()?.then(b => b.level * 100) ?? Promise.resolve(0));
+  const battery = await (navigator.getBattery?.()?.then(b => Math.round(b.level * 100)) ?? 0);
   const uptime = Math.floor((Date.now() - startTime) / 60000);
   
   const payload = {
     latitude: pos.coords.latitude,
     longitude: pos.coords.longitude,
     accuracy: pos.coords.accuracy,
-    altitude: pos.coords.altitude ?? null,
-    speed: pos.coords.speed ?? null,
-    battery: Math.round(await battery),
-    locations_total: locations_total,
+    battery: battery,
     uptime_minutes: uptime,
-    timestamp: new Date().toISOString()
+    locations_total: locations_total
   };
   
-  console.log('📤 POSTING:', payload);
+  console.log('📤', payload);
   
-  const response = await fetch(PIPEDREAM_URL, {
+  const res = await fetch(PIPEDREAM_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-    keepalive: true
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload)
   });
   
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
-  }
-  
-  console.log('📥 Pipedream OK:', response.status);
+  console.log('📥', res.status);
+  lastSent = Date.now();
 }
 </script>
+</body>
+</html>
