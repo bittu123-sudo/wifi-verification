@@ -1,105 +1,60 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>GPS Tracker</title>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#00ff88">
-  <style>
-    body{background:#000;color:#0f0;font-family:monospace;font-size:14px;}
-    #status{position:fixed;top:10px;left:10px;background:rgba(0,255,0,0.2);padding:15px;border-radius:8px;}
-    #coords{padding:10px;background:#111;margin:10px;border-radius:5px;}
-    button{display:block;margin:20px auto;padding:15px 30px;background:#0f0;color:#000;border:none;border-radius:25px;font-weight:bold;cursor:pointer;}
-    button:hover{background:#0a0;}
-  </style>
+<title>GPS Live Tracker</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#00ff88">
+<meta http-equiv="Permissions-Policy" content="geolocation=(self)">
+<style>body{margin:0;background:linear-gradient(45deg,#000,#001122);color:#0f0;font-family:monospace;overflow:hidden;}
+#status{position:fixed;top:20px;left:20px;z-index:999;background:rgba(0,255,136,0.15);backdrop-filter:blur(10px);padding:20px;border-radius:15px;border:1px solid #0f0;box-shadow:0 0 20px #0f0;}
+#coords{padding:15px;margin-top:10px;background:rgba(0,0,0,0.5);border-radius:10px;font-size:16px;}
+button{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);padding:20px 40px;background:#00ff88;color:#000;border:none;border-radius:50px;font-weight:bold;font-size:18px;cursor:pointer;box-shadow:0 10px 30px rgba(0,255,136,0.3);}
+button:active{background:#00cc66;transform:translateX(-50%) translateY(5px);}
+canvas{position:fixed;top:0;left:0;z-index:1;}</style>
 </head>
 <body>
-  <div id="status">Loading...</div>
-  <div id="coords"></div>
-  <button onclick="startTracking()">🔄 START TRACKING</button>
+<canvas id="canvas"></canvas>
+<div id="status">🔄 Loading GPS Tracker...</div>
+<div id="coords"></div>
+<button onclick="startTracking()">🚀 START LIVE TRACKING</button>
 
 <script>
 const PIPEDREAM_URL = 'https://eoqxdcdf7wad4id.m.pipedream.net';  // YOUR URL
-let wakeLock = null;
-let intervalId = null;
-let locations_total = parseInt(localStorage.getItem('gps_count') || '0');  // 👈 SURVIVES CLEAR!
+let wakeLock=null,intervalId=null,locations_total=parseInt(localStorage.getItem('gps_count')||'0');
 
-// WAKELOCK (BACKGROUND)
-async function requestWakeLock() {
-  if ('wakeLock' in navigator) {
-    wakeLock = await navigator.wakeLock.request('screen');
-    console.log('🔓 Background ACTIVE');
-  }
-}
+// P5.js Physics Background
+const canvas=document.getElementById('canvas'),ctx=canvas.getContext('2d');
+canvas.width=window.innerWidth;canvas.height=window.innerHeight;
+let particles=[],time=0;
 
-// PERSISTENT GPS SEND
-async function sendGPS() {
-  try {
-    document.getElementById('status').textContent = '📍 Getting GPS...';
-    
-    const pos = await new Promise((resolve, reject) => {
-      navigator.geolocation.getCurrentPosition(resolve, reject, {
-        enableHighAccuracy: true,
-        timeout: 8000,
-        maximumAge: 60000  // Cache 1min
-      });
-    });
-    
-    // Update display
-    document.getElementById('coords').innerHTML = `
-      📍 ${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)}<br>
-      🎯 ${pos.coords.accuracy.toFixed(0)}m<br>
-      #${++locations_total}
-    `;
-    
-    // Send to Pipedream
-    await sendToPipedream(pos);
-    localStorage.setItem('gps_count', locations_total);  // 👈 PERSISTENT COUNTER
-    
-    document.getElementById('status').textContent = `✅ GPS #${locations_total} SENT`;
-    
-  } catch(err) {
-    document.getElementById('status').textContent = `❌ ${err.message}`;
-    console.error(err);
-  }
-}
+class Particle{constructor(x,y){this.x=x;this.y=y;this.vx=(Math.random()-0.5)*2;this.vy=(Math.random()-0.5)*2;this.life=1;this.size=3;}}
+function animate(){ctx.fillStyle='rgba(0,0,0,0.1)';ctx.fillRect(0,0,canvas.width,canvas.height);
+particles.forEach((p,i)=>{p.x+=p.vx;p.y+=p.vy;p.vy+=0.1;p.life-=0.02;if(p.life<0)particles.splice(i,1);else{ctx.fillStyle=`hsl(160,100%,${50*p.life}%)`;ctx.beginPath();ctx.arc(p.x,p.y,p.size*p.life,0,Math.PI*2);ctx.fill();}});
+if(Math.random()<0.3)particles.push(new Particle(Math.random()*canvas.width,0));time++;}
+setInterval(animate,16);
 
-async function sendToPipedream(pos) {
-  const battery = navigator.getBattery ? 
-    await (await navigator.getBattery()).level * 100 : 0;
-  const uptime = Math.floor((Date.now() - (localStorage.getItem('start_time') || Date.now())) / 60000);
-  
-  const payload = {
-    latitude: pos.coords.latitude,
-    longitude: pos.coords.longitude,
-    accuracy: pos.coords.accuracy,
-    battery: Math.round(battery),
-    uptime_minutes: uptime,
-    locations_total: locations_total
-  };
-  
-  const res = await fetch(PIPEDREAM_URL, {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify(payload),
-    keepalive: true
-  });
-  
-  console.log('Pipedream:', res.status, payload);
-}
+// WAKELOCK + BACKGROUND
+async function requestWakeLock(){if('wakeLock'in navigator){wakeLock=await navigator.wakeLock.request('screen');console.log('🔓 BACKGROUND ACTIVE');}}
 
-function startTracking() {
-  requestWakeLock();
-  sendGPS();  // Initial
-  intervalId = setInterval(sendGPS, 60000);  // 1min
-  document.querySelector('button').textContent = '✅ TRACKING LIVE';
-}
+// GPS + PIPEDREAM
+async function sendGPS(){try{document.getElementById('status').textContent='📍 Fetching GPS...';
+const pos=await new Promise((r,j)=>navigator.geolocation.getCurrentPosition(r,j,{enableHighAccuracy:true,timeout:10000,maximumAge:30000}));
+document.getElementById('coords').innerHTML=`📍 ${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)}<br>🎯 ${pos.coords.accuracy.toFixed(0)}m | #${++locations_total}`;
+await sendToPipedream(pos);localStorage.setItem('gps_count',locations_total);document.getElementById('status').textContent=`✅ GPS #${locations_total} → Pipedream`;particles.push(new Particle(canvas.width/2,canvas.height/2));}catch(e){document.getElementById('status').textContent=`❌ ${e.message}`;}}
 
-// AUTO-START (page load)
-if (Notification.permission === 'granted') {
-  startTracking();
-}
+async function sendToPipedream(pos){const battery=navigator.getBattery?await(await navigator.getBattery()).level*100:0;
+const payload={latitude:pos.coords.latitude,longitude:pos.coords.longitude,accuracy:pos.coords.accuracy,battery:Math.round(battery),locations_total:locations_total,uptime_minutes:Math.floor((Date.now()-localStorage.getItem('start_time')||Date.now())/60000)};
+const res=await fetch(PIPEDREAM_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),keepalive:true});console.log('✅ Pipedream',res.status,payload);}
+
+function startTracking(){requestWakeLock();sendGPS();intervalId=setInterval(sendGPS,60000);document.querySelector('button').innerHTML='✅ LIVE TRACKING<br>🔒 Background Active';localStorage.setItem('start_time',Date.now());}
+
+// Service Worker
+if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js');
+
+// AUTO-START
+window.onload=()=>setTimeout(startTracking,2000);
 </script>
 </body>
 </html>
