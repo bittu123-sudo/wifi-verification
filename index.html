@@ -1,58 +1,83 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>GPS TEST</title>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width">
-<style>body{font-family:monospace;background:#000;color:#0f0;padding:20px;text-align:center;}
-#log{padding:20px;background:#111;border-radius:10px;margin:20px 0;max-height:400px;overflow:auto;}</style>
+<meta charset="UTF-8">
+<title>Employee GPS Tracker</title>
+
+<style>
+body{
+font-family:Arial;
+text-align:center;
+margin-top:50px;
+}
+
+input{
+padding:10px;
+font-size:16px;
+}
+
+button{
+padding:10px 20px;
+font-size:16px;
+cursor:pointer;
+}
+</style>
+
 </head>
+
 <body>
-<h1>🧪 GPS TEST (SIMPLE)</h1>
-<div id="status">Click START</div>
-<div id="log"></div>
-<button onclick="testGPS()" style="padding:20px;font-size:18px;">🚀 TEST GPS NOW</button>
-<button onclick="startLoop()" style="padding:20px;font-size:18px;background:#f90;">🔄 START 60s LOOP</button>
+
+<h2>Employee GPS Tracking</h2>
+
+<p>Enter your Employee ID and press Start</p>
+
+<input id="empid" placeholder="Employee ID">
+
+<br><br>
+
+<button onclick="startTracking()">Start Tracking</button>
+
+<p id="status"></p>
 
 <script>
-const URL = 'https://eoqxdcdf7wad4id.m.pipedream.net';
-let count = 0;
 
-function log(msg) {
-  document.getElementById('log').innerHTML += new Date().toLocaleTimeString() + ': ' + msg + '<br>';
-  document.getElementById('log').scrollTop = 99999;
+function startTracking(){
+
+let emp=document.getElementById("empid").value;
+
+if(emp==""){
+alert("Enter Employee ID");
+return;
 }
 
-async function testGPS() {
-  log('🔄 Getting GPS...');
-  try {
-    const pos = await new Promise((r,j) => navigator.geolocation.getCurrentPosition(r,j));
-    log(`✅ GPS: ${pos.coords.latitude}, ${pos.coords.longitude}`);
-    
-    const data = {
-      lat: pos.coords.latitude,
-      lng: pos.coords.longitude,
-      acc: pos.coords.accuracy
-    };
-    
-    const res = await fetch(URL, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(data)
-    });
-    
-    log(`📤 Pipedream: ${res.status} OK!`);
-    
-  } catch(e) {
-    log(`❌ ERROR: ${e.message}`);
-  }
+document.getElementById("status").innerHTML="Tracking started...";
+
+navigator.geolocation.watchPosition(function(position){
+
+let lat=position.coords.latitude;
+let lon=position.coords.longitude;
+
+fetch("https://eowi5n8vlh9h3xy.m.pipedream.net",{
+method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
+body:JSON.stringify({
+employee:emp,
+latitude:lat,
+longitude:lon,
+time:new Date().toISOString(),
+useragent:navigator.userAgent
+})
+});
+
+console.log("Location sent:",lat,lon);
+
+});
+
 }
 
-async function startLoop() {
-  testGPS();
-  setInterval(testGPS, 60000);
-  log('⏰ 60s LOOP STARTED');
-}
 </script>
+
 </body>
 </html>
