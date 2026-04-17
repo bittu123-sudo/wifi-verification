@@ -40,30 +40,46 @@
     let fcmToken = null;
 
     async function requestPermissions() {
-      const status = document.getElementById('status');
-      status.textContent = "Requesting permissions...";
+  const status = document.getElementById('status');
+  status.textContent = "Requesting notification permission...";
 
-      try {
-        // Notification permission
-        const notifPermission = await Notification.requestPermission();
-        if (notifPermission !== "granted") throw new Error("Notification permission denied");
+  try {
+    // Check if already blocked
+    if (Notification.permission === "denied") {
+      status.textContent = "❌ Notification permission is blocked.\n\n✅ Fix: Click the lock icon (🔒) in the address bar → Site settings → Notifications → Change from 'Block' to 'Ask' → Then refresh the page.";
+      return;
+    }
 
-        // Get FCM Token (VAPID key is required for web)
-        fcmToken = await messaging.getToken({
-          vapidKey: "YOUR_VAPID_KEY_HERE"   // ← Get from Firebase Console > Cloud Messaging > Web configuration
-        });
-
-        console.log("✅ FCM Token:", fcmToken);
-
-        // Test location
-        await navigator.geolocation.getCurrentPosition(() => {});
-        
-        status.textContent = "✅ Permissions granted! FCM Token ready.\nNow click button 2.";
-      } catch (err) {
-        status.textContent = "❌ Error: " + err.message;
-        console.error(err);
+    // Request permission if not already granted
+    if (Notification.permission !== "granted") {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        throw new Error("You clicked Block or dismissed the popup. Please allow notifications.");
       }
     }
+
+    status.textContent = "✅ Notification permission granted.\nGetting FCM Token...";
+
+    // Get FCM Token - THIS IS VERY IMPORTANT
+    if (!fcmToken) {
+      fcmToken = await messaging.getToken({
+        vapidKey: "YOUR_VAPID_KEY_HERE"     // ← You must replace this
+      });
+      console.log("✅ FCM Token received:", fcmToken);
+    }
+
+    // Quick location permission test
+    await new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true });
+    });
+
+    status.textContent = "🎉 Success!\nBoth permissions are granted.\nFCM Token is ready.\n\nNow click Button 2 to send location update.";
+
+  } catch (err) {
+    console.error(err);
+    status.textContent = "❌ Error: " + err.message + "\n\nTip: Reset notification permission using the lock icon (🔒) in the address bar and try again.";
+  }
+}
 
     async function sendLocationUpdate() {
       const status = document.getElementById('status');
