@@ -3,131 +3,93 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Location Tracker (Pipedream + FCM)</title>
-  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js"></script>
+  <title>📍 Real Push Location Tracker</title>
   <style>
     body { font-family: Arial, sans-serif; text-align: center; padding: 40px; background: #f8f9fa; }
-    button { padding: 15px 30px; font-size: 18px; margin: 15px; cursor: pointer; border: none; border-radius: 8px; }
+    button { padding: 15px 30px; font-size: 18px; margin: 15px; border: none; border-radius: 8px; cursor: pointer; }
     .btn1 { background: #007bff; color: white; }
     .btn2 { background: #28a745; color: white; }
-    #status { margin: 25px; font-size: 17px; min-height: 80px; }
+    #status { margin: 30px; font-size: 17px; line-height: 1.6; min-height: 120px; }
   </style>
 </head>
 <body>
-  <h1>📍 Location + Push Notification</h1>
-  <p>Using GitHub + Pipedream</p>
+  <h1>📍 Real Push Location Tracker</h1>
+  <p>GitHub Pages + Pipedream (No Firebase)</p>
 
-  <button class="btn1" onclick="requestPermissions()">1. Request Permissions (Location + Notification)</button><br>
-  <button class="btn2" onclick="sendLocationUpdate()">2. Send Location Update via Pipedream</button>
+  <button class="btn1" onclick="subscribeToPush()">1. Subscribe to Push Notifications</button><br><br>
+  <button class="btn2" onclick="sendLocationUpdate()">2. Send My Current Location via Push</button>
 
   <div id="status"></div>
 
   <script>
-    // ================== YOUR FIREBASE CONFIG ==================
-    const firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "your-project.firebaseapp.com",
-      projectId: "your-project",
-      storageBucket: "your-project.appspot.com",
-      messagingSenderId: "YOUR_SENDER_ID",
-      appId: "YOUR_APP_ID"
-    };
+    const VAPID_PUBLIC_KEY = "BPY-cv6ctLkUlqV6DMQPt0hS1lacj_7BAMnDleldwnmv7MqnyY73xhWlL_U_mSwzfU-mFvDE1Ivlrggbp7qIxKs";
 
-    firebase.initializeApp(firebaseConfig);
-    const messaging = firebase.messaging();
+    let subscription = null;
 
-    let fcmToken = null;
+    async function subscribeToPush() {
+      const status = document.getElementById('status');
+      status.textContent = "Requesting permission...";
 
-    async function requestPermissions() {
-  const status = document.getElementById('status');
-  status.textContent = "Requesting notification permission...";
+      try {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+          throw new Error("Your browser does not support push notifications");
+        }
 
-  try {
-    // Check if already blocked
-    if (Notification.permission === "denied") {
-      status.textContent = "❌ Notification permission is blocked.\n\n✅ Fix: Click the lock icon (🔒) in the address bar → Site settings → Notifications → Change from 'Block' to 'Ask' → Then refresh the page.";
-      return;
-    }
+        const registration = await navigator.serviceWorker.register('/sw.js');
 
-    // Request permission if not already granted
-    if (Notification.permission !== "granted") {
-      const permission = await Notification.requestPermission();
-      if (permission !== "granted") {
-        throw new Error("You clicked Block or dismissed the popup. Please allow notifications.");
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") throw new Error("Notification permission denied. Please allow it.");
+
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: VAPID_PUBLIC_KEY
+        });
+
+        status.textContent = "✅ Successfully subscribed to push notifications!\n\nYou can now close the tab and still receive notifications.\nClick Button 2 to test.";
+        console.log("Subscription:", subscription);
+      } catch (err) {
+        console.error(err);
+        status.textContent = "❌ Error: " + err.message + "\n\nMake sure you allowed both Notification and Location permissions.";
       }
     }
-
-    status.textContent = "✅ Notification permission granted.\nGetting FCM Token...";
-
-    // Get FCM Token - THIS IS VERY IMPORTANT
-    if (!fcmToken) {
-      fcmToken = await messaging.getToken({
-        vapidKey: "YOUR_VAPID_KEY_HERE"     // ← You must replace this
-      });
-      console.log("✅ FCM Token received:", fcmToken);
-    }
-
-    // Quick location permission test
-    await new Promise((resolve, reject) => {
-      navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true });
-    });
-
-    status.textContent = "🎉 Success!\nBoth permissions are granted.\nFCM Token is ready.\n\nNow click Button 2 to send location update.";
-
-  } catch (err) {
-    console.error(err);
-    status.textContent = "❌ Error: " + err.message + "\n\nTip: Reset notification permission using the lock icon (🔒) in the address bar and try again.";
-  }
-}
 
     async function sendLocationUpdate() {
       const status = document.getElementById('status');
-      if (!fcmToken) {
-        status.textContent = "Please click button 1 first!";
+      if (!subscription) {
+        status.textContent = "Please click Button 1 first!";
         return;
       }
 
-      status.textContent = "📍 Getting current location...";
+      status.textContent = "📍 Getting your current location...";
 
       try {
         const position = await new Promise((resolve, reject) => {
           navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true });
         });
 
-        const locationData = {
+        const data = {
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
           accuracy: position.coords.accuracy,
           timestamp: new Date().toISOString(),
-          fcmToken: fcmToken
+          subscription: subscription
         };
 
-        status.textContent = `📍 Location captured!\nLat: ${locationData.latitude.toFixed(5)}\nLon: ${locationData.longitude.toFixed(5)}\nSending to Pipedream...`;
-
-        // Send data to your Pipedream webhook
         const response = await fetch('https://eos42ihp3bqk71v.m.pipedream.net', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(locationData)
+          body: JSON.stringify(data)
         });
 
         if (response.ok) {
-          status.textContent += "\n\n✅ Sent to Pipedream successfully!\nPipedream will now send the FCM notification with location.";
+          status.textContent = "✅ Location sent to Pipedream!\n\nWait a few seconds... You should receive a real push notification with your location.";
         } else {
-          status.textContent += "\n\n❌ Failed to send to Pipedream";
+          status.textContent = "❌ Failed to send to Pipedream";
         }
       } catch (err) {
-        status.textContent = "❌ Error: " + err.message;
+        status.textContent = "❌ Error getting location: " + err.message;
       }
     }
-
-    // Optional: Show notification when received while page is open
-    messaging.onMessage((payload) => {
-      console.log("Notification received:", payload);
-      const status = document.getElementById('status');
-      status.textContent = `🔔 Notification received: ${payload.notification?.body || 'Location update'}`;
-    });
   </script>
 </body>
 </html>
