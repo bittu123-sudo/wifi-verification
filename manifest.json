@@ -1,9 +1,9 @@
 {
-  "name": "GPS Live Tracker",
-  "short_name": "GPS Live",
-  "start_url": "/",
+  "name": "Secure Check-In",
+  "short_name": "Check-In",
+  "start_url": "./",
   "display": "standalone",
-  "background_color": "#000011",
-  "theme_color": "#00ff88",
-  "icons": [{"src":"data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAyNCIgaGVpZ2h0PSIxMDI0IiB2aWV3Qm94PSIwIDAgMTAyNCAxMDI0IiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxwYXRoIGQ9Ik0xMDI0IDEwMjRIMFYxIC0xSDEwMjRWMTAyNFoiIGZpbGw9IiMwMGZmODgiLz48L3N2Zz4=","sizes":"1024x1024","type":"image/svg+xml"}]
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": []
 }
