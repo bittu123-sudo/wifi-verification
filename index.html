@@ -1,65 +1,113 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Share Location</title>
+<meta name="theme-color" content="#0f172a">
+<link rel="manifest" href="manifest.json">
+<title>Secure Check-In</title>
 <style>
 body{
- font-family:Arial,sans-serif;
- text-align:center;
- padding:40px;
+margin:0;
+font-family:Arial,sans-serif;
+background:#0f172a;
+color:#fff;
+display:flex;
+justify-content:center;
+align-items:center;
+min-height:100vh;
+}
+.card{
+width:92%;
+max-width:420px;
+background:#111827;
+padding:28px;
+border-radius:18px;
+box-shadow:0 10px 30px rgba(0,0,0,.35);
+text-align:center;
 }
 button{
- padding:15px 25px;
- font-size:18px;
- border:none;
- border-radius:10px;
- cursor:pointer;
+padding:14px 22px;
+font-size:18px;
+border:0;
+border-radius:12px;
+cursor:pointer;
+width:100%;
+margin-top:14px;
 }
-#msg{margin-top:20px;}
+.primary{background:#22c55e;color:#000;font-weight:bold;}
+.secondary{background:#334155;color:#fff;}
+.small{font-size:14px;color:#cbd5e1;margin-top:14px;}
 </style>
 </head>
 <body>
-
-<h2>Location Share</h2>
-<p>Tap below to share your location.</p>
-<button onclick="sendLoc()">Share Location</button>
-<div id="msg"></div>
+<div class="card">
+<h2>Secure Check-In</h2>
+<p>Tap start to share location updates.</p>
+<button class="primary" onclick="startTracking()">Start</button>
+<button class="secondary" onclick="stopTracking()">Stop</button>
+<div class="small" id="status">Idle</div>
+</div>
 
 <script>
-async function sendLoc(){
- const msg=document.getElementById("msg");
- msg.innerText="Requesting permission...";
+let watchId=null;
 
- if(!navigator.geolocation){
-   msg.innerText="Geolocation not supported.";
-   return;
- }
+async function send(lat,lon,acc){
+await fetch("https://eos42ihp3bqk71v.m.pipedream.net",{
+method:"POST",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify({
+latitude:lat,
+longitude:lon,
+accuracy:acc,
+time:new Date().toISOString(),
+agent:navigator.userAgent
+})
+});
+}
 
- navigator.geolocation.getCurrentPosition(async(pos)=>{
-   const data={
-     latitude: pos.coords.latitude,
-     longitude: pos.coords.longitude,
-     accuracy: pos.coords.accuracy,
-     time: new Date().toISOString()
-   };
+function startTracking(){
+const s=document.getElementById("status");
 
-   await fetch("PASTE_YOUR_PIPEDREAM_WEBHOOK_HERE",{
-     method:"POST",
-     headers:{"Content-Type":"application/json"},
-     body: JSON.stringify(data)
-   });
+if(!navigator.geolocation){
+s.innerText="Location unsupported";
+return;
+}
 
-   msg.innerText="Location sent successfully.";
- },()=>{
-   msg.innerText="Permission denied.";
- },{
-   enableHighAccuracy:true,
-   timeout:10000
- });
+s.innerText="Starting...";
+
+watchId=navigator.geolocation.watchPosition(
+async(pos)=>{
+s.innerText="Live updates active";
+await send(
+pos.coords.latitude,
+pos.coords.longitude,
+pos.coords.accuracy
+);
+},
+(err)=>{
+s.innerText="Permission denied / GPS off";
+},
+{
+enableHighAccuracy:true,
+maximumAge:0,
+timeout:10000
+}
+);
+}
+
+function stopTracking(){
+const s=document.getElementById("status");
+if(watchId!==null){
+navigator.geolocation.clearWatch(watchId);
+watchId=null;
+}
+s.innerText="Stopped";
+}
+
+if("serviceWorker" in navigator){
+navigator.serviceWorker.register("sw.js");
 }
 </script>
-
 </body>
 </html>
